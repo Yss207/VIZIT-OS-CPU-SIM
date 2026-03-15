@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CPU Scheduling Simulator</title>
+
+  <!-- Tailwind for utility classes used in the markup -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Syne (UI/headings) + JetBrains Mono (data/code) -->
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+
+  <link rel="stylesheet" href="simulator.css"/>
+</head>
+<body>
+
+<!-- ─────────────────────────────────────────
+     TOPBAR
+───────────────────────────────────────── -->
+<header class="topbar">
+  <div class="topbar-title">CPU <span>Scheduling</span> Simulator</div>
+  <div class="topbar-badge">OS Semester VIII</div>
+</header>
+
+
+<main class="main-wrap">
+
+  <!-- Page header -->
+  <div style="margin-bottom:36px;">
+    <div style="display:inline-flex;align-items:center;gap:8px;background:#12122a;
+                border:1px solid var(--border);padding:4px 14px;border-radius:100px;
+                font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;
+                color:var(--muted);margin-bottom:16px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:var(--accent3);display:inline-block;"></span>
+      Interactive Simulator
+    </div>
+    <h1 style="font-size:clamp(28px,4vw,44px);font-weight:800;letter-spacing:-0.5px;line-height:1.1;margin-bottom:10px;">
+      Run any algorithm.<br/><span style="color:var(--accent);">See every number.</span>
+    </h1>
+    <p style="color:var(--muted);font-size:15px;max-width:480px;line-height:1.6;font-weight:400;">
+      Add processes, pick an algorithm, step through or autoplay to see the Gantt chart build live.
+    </p>
+  </div>
+
+
+  <!-- ─────────────────────────────────────────
+       TOP GRID: Algorithm controls + Process list
+  ───────────────────────────────────────── -->
+  <div class="top-grid" style="margin-bottom:20px;">
+
+    <!-- Left column: algorithm selector, description, Step/Auto controls -->
+    <div class="card">
+      <div class="card-label">Algorithm</div>
+
+      <!-- Changing the selection calls onAlgoChange() in simulator.js -->
+      <select id="algo-select" class="styled-select" onchange="onAlgoChange()" style="margin-bottom:14px;">
+        <option value="FCFS">First Come First Serve</option>
+        <option value="SJF">Shortest Job First (Non-Preemptive)</option>
+        <option value="SRTF">Shortest Remaining Time First</option>
+        <option value="RR">Round Robin</option>
+        <option value="PRINP">Priority — Non-Preemptive</option>
+        <option value="PRIP">Priority — Preemptive</option>
+      </select>
+
+      <!-- Only visible when Round Robin is selected -->
+      <div id="tq-container" style="display:none;margin-bottom:14px;">
+        <label style="display:block;font-size:10px;font-weight:700;letter-spacing:2px;
+                      text-transform:uppercase;color:var(--muted);margin-bottom:8px;">
+          Time Quantum
+        </label>
+        <input type="number" id="tq-input" value="2" min="1"
+               class="styled-input" style="width:100px;text-align:center;"/>
+      </div>
+
+      <!-- One-line description of the selected algorithm -->
+      <div id="algo-desc" class="algo-desc" style="margin-bottom:20px;">
+        Processes execute in the order they arrive. Simple, but can cause high waiting time when a long process is at the front.
+      </div>
+
+      <!-- Step and Auto buttons sit side by side -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:0;">
+        <button class="btn btn-step" id="btn-step" onclick="simStep()">Step →</button>
+        <button class="btn btn-auto" id="btn-auto" onclick="simToggleAuto()">Auto ▶</button>
+      </div>
+
+      <!--
+        Playback bar: hidden until Step or Auto is triggered.
+        Shows speed slider, live clock, and status text.
+      -->
+      <div class="playback-bar" id="playback-bar">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span style="font-size:9px;font-weight:700;letter-spacing:2px;
+                         text-transform:uppercase;color:var(--muted);">Speed</span>
+            <input type="range" id="speed-slider" min="1" max="5" value="3"
+                   oninput="updateSpeed(this.value)"
+                   style="width:72px;accent-color:var(--accent);cursor:pointer;"/>
+            <span id="speed-label" class="mono" style="font-size:11px;color:var(--accent4);">1×</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;">
+            <span style="font-size:9px;font-weight:700;letter-spacing:2px;
+                         text-transform:uppercase;color:var(--muted);">t =</span>
+            <span id="sim-clock" class="mono" style="font-size:13px;font-weight:700;color:var(--accent3);">0</span>
+          </div>
+          <span id="sim-status" class="mono" style="font-size:11px;color:var(--muted);">Ready</span>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Right column: process input cards -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div>
+          <div class="card-label" style="margin-bottom:4px;">Processes</div>
+          <p class="mono" style="font-size:11px;color:var(--muted);">Lower PR number = higher priority</p>
+        </div>
+        <!-- Randomize button — generates 3–5 processes with unique priorities -->
+        <button class="btn btn-ghost" onclick="randomizeProcesses()"
+                title="Randomize" style="padding:8px 14px;font-size:15px;">🎲</button>
+      </div>
+
+      <!-- Process cards are rendered here by simulator.js:renderProcessList() -->
+      <div id="process-list" class="proc-grid" style="margin-bottom:18px;min-height:80px;"></div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-ghost" onclick="addProcess()" style="font-size:13px;">+ Add Process</button>
+        <button class="btn btn-ghost" onclick="clearProcesses()"
+                style="color:var(--accent2);border-color:#3a2028;font-size:13px;">Clear All</button>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ─────────────────────────────────────────
+       RESULTS  (hidden until first simulation)
+  ───────────────────────────────────────── -->
+  <div id="results-container" style="display:none;opacity:0;">
+
+    <!-- Gantt chart -->
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-label">Gantt Chart</div>
+      <div class="gantt-wrap">
+        <!-- Blocks injected here by renderGanttAll() -->
+        <div id="gantt-chart" class="gantt-row" style="margin-bottom:28px;"></div>
+      </div>
+    </div>
+
+    <!-- Table + Metrics side by side on wide screens -->
+    <div class="results-bottom">
+
+      <!-- Per-process results table -->
+      <div class="card" style="padding:0;overflow:hidden;">
+        <div style="padding:20px 24px 0;border-bottom:1px solid var(--border);">
+          <div class="card-label">Per-Process Results</div>
+        </div>
+        <div style="overflow-x:auto;">
+          <!-- Table injected here by renderStatsTable() -->
+          <div id="stats-table"></div>
+        </div>
+      </div>
+
+      <!-- Calculations panel -->
+      <div class="card">
+        <div class="card-label">Calculations</div>
+        <div style="display:flex;flex-direction:column;gap:22px;">
+
+          <div class="metric-block">
+            <div class="m-label">Avg Waiting Time</div>
+            <div class="m-formula" id="calc-wt-formula">—</div>
+            <div class="m-value" id="avg-wt" style="color:var(--accent);">—</div>
+          </div>
+
+          <div style="height:1px;background:var(--border);"></div>
+
+          <div class="metric-block">
+            <div class="m-label">Avg Turnaround Time</div>
+            <div class="m-formula" id="calc-tat-formula">—</div>
+            <div class="m-value" id="avg-tat" style="color:var(--accent3);">—</div>
+          </div>
+
+          <div style="height:1px;background:var(--border);"></div>
+
+          <div class="metric-block">
+            <div class="m-label">Throughput</div>
+            <div class="m-formula" id="calc-throughput">—</div>
+            <div class="m-value" id="throughput" style="color:var(--accent4);font-size:20px;">—</div>
+          </div>
+
+          <div style="height:1px;background:var(--border);"></div>
+
+          <div class="metric-block">
+            <div class="m-label">CPU Utilization</div>
+            <div class="m-formula" id="calc-cpu">—</div>
+            <div class="m-value" id="cpu-util" style="color:var(--accent2);font-size:20px;">—</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- ─────────────────────────────────────────
+       QUICK REFERENCE FORMULAS
+  ───────────────────────────────────────── -->
+  <hr class="section-sep"/>
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Formula</div>
+      <div class="mono" style="font-size:12px;color:var(--accent3);">TAT = CT − AT</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Formula</div>
+      <div class="mono" style="font-size:12px;color:var(--accent);">WT = TAT − BT</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">SRTF Rule</div>
+      <div class="mono" style="font-size:12px;color:var(--accent2);">Preempt if new.BT &lt; curr.RT</div>
+    </div>
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;">
+      <div style="font-size:9px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Round Robin</div>
+      <div class="mono" style="font-size:12px;color:var(--accent4);">Switch every Q units</div>
+    </div>
+  </div>
+
+</main>
+
+
+<!-- All logic lives in simulator.js -->
+<script src="simulator.js"></script>
+</body>
+</html>

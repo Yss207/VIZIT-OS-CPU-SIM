@@ -1,0 +1,499 @@
+/*
+  CPU Scheduling — Interactive Learning Guide
+  style.css
+  
+  Fonts loaded via Google Fonts in index.html:
+    Syne       — headings, UI labels, buttons
+    JetBrains Mono — code, data, formulas, Gantt labels
+*/
+
+
+/* ─────────────────────────────────────────
+   DESIGN TOKENS
+   All colors live here. Change one, changes everywhere.
+───────────────────────────────────────── */
+:root {
+  --bg:      #0a0a0f;   /* page background */
+  --surface: #111118;   /* card background */
+  --surface2:#18181f;   /* slightly lighter surface (inputs, viz headers) */
+  --border:  #2a2a38;   /* all borders */
+  --accent:  #7c6aff;   /* purple — P1, foundations phase */
+  --accent2: #ff6a6a;   /* red — P2, warnings, danger */
+  --accent3: #6affb8;   /* green — P3, success, metrics */
+  --accent4: #ffb86a;   /* orange — P4, highlights */
+  --text:    #e8e8f0;   /* primary text */
+  --muted:   #7878a0;   /* secondary text, labels */
+
+  /* per-process colors used consistently throughout the page */
+  --p1: #7c6aff;
+  --p2: #ff6a6a;
+  --p3: #6affb8;
+  --p4: #ffb86a;
+  --p5: #ff6adf;
+}
+
+
+/* ─────────────────────────────────────────
+   RESET / BASE
+───────────────────────────────────────── */
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  overflow-x: hidden;
+}
+
+code, .mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* thin scrollbar, dark-themed */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+
+/* ─────────────────────────────────────────
+   NOISE TEXTURE OVERLAY
+   SVG fractal noise layered on the body
+   using a fixed pseudo-element.
+   Keeps things from looking too flat.
+───────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.4;
+}
+
+
+/* ─────────────────────────────────────────
+   LAYOUT — SECTIONS
+───────────────────────────────────────── */
+.section {
+  position: relative;
+  padding: 100px 0 80px;
+  z-index: 1;
+}
+/* divider between adjacent sections */
+.section + .section { border-top: 1px solid var(--border); }
+
+
+/* ─────────────────────────────────────────
+   HERO — background decorations
+───────────────────────────────────────── */
+.grid-lines {
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: 0.3;
+}
+
+/* blurred gradient orb, used for ambient glow in hero */
+.orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+
+/* ─────────────────────────────────────────
+   PHASE PROGRESS BAR  (fixed top strip)
+───────────────────────────────────────── */
+#phase-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: rgba(10,10,15,0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  padding: 0 24px;
+  height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 0;
+}
+
+.phase-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted);
+  transition: color 0.3s;
+  cursor: pointer;
+}
+
+.phase-step .phase-icon {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; transition: all 0.3s;
+  background: var(--bg);
+}
+
+/* state variations */
+.phase-step.done              { color: var(--accent3); }
+.phase-step.done .phase-icon  { background: var(--accent3); border-color: var(--accent3); color: #000; }
+.phase-step.active            { color: var(--text); }
+.phase-step.active .phase-icon{ border-color: var(--accent); background: #1e1a3a; color: var(--accent); }
+
+.phase-sep {
+  color: #2a2a38;
+  font-size: 12px; font-weight: 300;
+  padding: 0 4px;
+}
+
+@media (max-width: 640px) {
+  .phase-step .phase-label { display: none; }
+  .phase-step { padding: 0 8px; }
+}
+
+
+/* ─────────────────────────────────────────
+   SIDE NAV  (fixed left dot navigation)
+───────────────────────────────────────── */
+#progress-nav {
+  position: fixed; left: 24px; top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.nav-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.nav-group + .nav-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-group-label {
+  font-size: 7px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: #333;
+  padding-left: 2px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.nav-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--border); cursor: pointer;
+  transition: all 0.3s; position: relative;
+}
+
+/* elongates on active */
+.nav-dot.active { background: var(--accent); width: 8px; height: 24px; border-radius: 4px; }
+.nav-dot:hover  { background: var(--muted); }
+
+/* dot color shifts by phase when active */
+.nav-dot.phase-foundations.active { background: var(--accent); }
+.nav-dot.phase-scheduling.active  { background: var(--accent4); }
+.nav-dot.phase-algorithms.active  { background: var(--accent2); }
+
+/* hover tooltip */
+.nav-dot .tooltip {
+  position: absolute; left: 18px; top: 50%;
+  transform: translateY(-50%);
+  background: var(--surface); border: 1px solid var(--border);
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 11px; white-space: nowrap;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s;
+}
+.nav-dot:hover .tooltip { opacity: 1; }
+
+@media (max-width: 768px) { #progress-nav { display: none; } }
+@media (max-width: 480px) { #phase-bar    { display: none; } }
+
+
+/* ─────────────────────────────────────────
+   STAGE BADGE  (small pill above section headings)
+───────────────────────────────────────── */
+.stage-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  background: #1a1a28; border: 1px solid var(--border);
+  padding: 4px 14px; border-radius: 100px;
+  font-size: 11px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 20px;
+}
+.stage-badge .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+
+/* ─────────────────────────────────────────
+   THEORY CARD  (content cards with colored top stripe)
+───────────────────────────────────────── */
+.theory-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+/* the 2px gradient stripe at the top */
+.theory-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 2px;
+}
+.theory-card.accent-purple::before { background: linear-gradient(90deg, var(--accent),  transparent); }
+.theory-card.accent-red::before    { background: linear-gradient(90deg, var(--accent2), transparent); }
+.theory-card.accent-green::before  { background: linear-gradient(90deg, var(--accent3), transparent); }
+.theory-card.accent-orange::before { background: linear-gradient(90deg, var(--accent4), transparent); }
+
+
+/* ─────────────────────────────────────────
+   PHASE TRANSITION CARDS  (between phases)
+───────────────────────────────────────── */
+.phase-transition {
+  padding: 80px 0;
+  border-top: 1px solid var(--border);
+  position: relative; z-index: 1;
+}
+.phase-transition-inner {
+  max-width: 640px; margin: 0 auto;
+  padding: 0 32px; text-align: center;
+}
+.phase-transition-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 24px;
+  font-size: 10px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+}
+.phase-transition-badge .line { height: 1px; width: 32px; background: var(--border); }
+.phase-transition p            { font-size: 18px; line-height: 1.7; color: var(--muted); font-weight: 400; }
+.phase-transition strong       { color: var(--text); font-weight: 700; }
+.phase-transition .next-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-top: 28px; padding: 12px 28px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'Syne', sans-serif; text-decoration: none;
+}
+.phase-transition .next-btn:hover {
+  border-color: var(--accent); background: #1a1a2a;
+  transform: translateY(-1px);
+}
+
+
+/* ─────────────────────────────────────────
+   VIZ BOX  (container for interactive visualizations)
+───────────────────────────────────────── */
+.viz-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+}
+.viz-header {
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2);
+}
+.viz-title {
+  font-size: 11px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted);
+}
+.viz-body { padding: 24px; }
+
+
+/* ─────────────────────────────────────────
+   GANTT CHART BLOCKS
+───────────────────────────────────────── */
+.gantt-row { display: flex; align-items: center; gap: 0; }
+
+.gantt-block {
+  height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; font-weight: 700;
+  position: relative;
+  transition: all 0.3s;
+  border-radius: 4px;
+  margin: 1px;
+}
+
+/* time tick labels underneath blocks */
+.gantt-block .tick {
+  position: absolute; bottom: -20px; left: 0;
+  font-size: 10px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.gantt-block .tick-end {
+  position: absolute; bottom: -20px; right: 0;
+  font-size: 10px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+
+/* ─────────────────────────────────────────
+   PROCESS PILL  (colored label tag, e.g. "P1")
+───────────────────────────────────────── */
+.proc-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 6px;
+  font-size: 12px; font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+
+/* ─────────────────────────────────────────
+   METRIC PILL  (avg wait time, avg TAT badges)
+───────────────────────────────────────── */
+.metric-pill {
+  display: flex; flex-direction: column; align-items: center;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 20px; min-width: 100px;
+}
+.metric-pill .val { font-size: 22px; font-weight: 800; }
+.metric-pill .lbl {
+  font-size: 10px; color: var(--muted);
+  letter-spacing: 1px; text-transform: uppercase; margin-top: 2px;
+}
+
+
+/* ─────────────────────────────────────────
+   BUTTONS
+───────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 22px; border-radius: 10px;
+  font-size: 13px; font-weight: 700;
+  cursor: pointer; border: none; transition: all 0.2s;
+  font-family: 'Syne', sans-serif;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: #9080ff; transform: translateY(-1px); }
+.btn-ghost   { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); }
+.btn-danger  { background: var(--accent2); color: #fff; }
+.btn-success { background: var(--accent3); color: #000; }
+
+
+/* ─────────────────────────────────────────
+   DATA TABLE  (results tables in simulators)
+───────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); padding: 10px 14px;
+  text-align: left; border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace;
+}
+.data-table td {
+  padding: 10px 14px; font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid #1e1e2a;
+}
+
+
+/* ─────────────────────────────────────────
+   HIGHLIGHT BOX  (left-bordered callout)
+───────────────────────────────────────── */
+.highlight-box {
+  background: #13131f;
+  border-left: 3px solid var(--accent);
+  padding: 14px 18px;
+  border-radius: 0 10px 10px 0;
+  font-size: 14px; line-height: 1.7;
+}
+.highlight-box.red    { border-left-color: var(--accent2); }
+.highlight-box.green  { border-left-color: var(--accent3); }
+.highlight-box.orange { border-left-color: var(--accent4); }
+
+
+/* ─────────────────────────────────────────
+   FORMULA  (monospace display for math)
+───────────────────────────────────────── */
+.formula {
+  background: #0f0f18; border: 1px solid var(--border);
+  border-radius: 10px; padding: 12px 20px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; color: var(--accent3);
+  display: inline-block;
+}
+
+
+/* ─────────────────────────────────────────
+   ALGORITHM QUESTION CARD  (before algos section)
+───────────────────────────────────────── */
+.question-card {
+  background: #0d0d18; border: 1px solid #2a2a48;
+  border-radius: 20px; padding: 40px;
+  position: relative; overflow: hidden;
+}
+/* the large decorative "?" in the background */
+.question-card::before {
+  content: '?';
+  position: absolute; right: 32px; top: 16px;
+  font-size: 120px; font-weight: 900;
+  color: #ffffff06;
+  font-family: 'Syne', sans-serif;
+  line-height: 1;
+}
+.question-card-processes {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin: 24px 0;
+}
+@media (max-width: 640px) {
+  .question-card-processes { grid-template-columns: repeat(2, 1fr); }
+}
+.qcard-proc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; text-align: center;
+}
+
+
+/* ─────────────────────────────────────────
+   MISC UI COMPONENTS
+───────────────────────────────────────── */
+
+/* tab buttons in the comparison section */
+.algo-tab {
+  padding: 8px 18px; border-radius: 8px;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; border: 1px solid var(--border);
+  color: var(--muted); background: var(--surface2);
+  transition: all 0.2s; letter-spacing: 1px;
+}
+.algo-tab.active { color: #fff; border-color: var(--accent); background: #1e1a3a; }
+
+/* number input used in RR quantum */
+.styled-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 14px; border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  outline: none; width: 80px; text-align: center;
+  transition: border-color 0.2s;
+}
+.styled-input:focus { border-color: var(--accent); }
+
+
+/* ─────────────────────────────────────────
+   ANIMATIONS
+───────────────────────────────────────── */
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+.fade-up { animation: fadeUp 0.6s ease forwards; }

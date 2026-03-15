@@ -1,0 +1,430 @@
+/*
+  CPU Scheduling Simulator
+  simulator.css
+
+  Fonts loaded via Google Fonts in simulator.html:
+    Syne           — headings, buttons, UI labels
+    JetBrains Mono — all numeric data, code, Gantt labels
+*/
+
+
+/* ─────────────────────────────────────────
+   DESIGN TOKENS
+   Slightly different palette from the learning
+   page: deeper background, more saturated accents
+   so the Gantt blocks pop against the dark surface.
+───────────────────────────────────────── */
+:root {
+  --bg:      #07070e;
+  --surface: #0f0f1a;
+  --surface2:#161624;
+  --border:  #252538;
+  --accent:  #8b75ff;  /* purple — avg wait time, P1 */
+  --accent2: #ff5f5f;  /* red — CPU util, danger */
+  --accent3: #3dffa0;  /* green — avg TAT, success */
+  --accent4: #ffb340;  /* amber — throughput, speed label */
+  --text:    #eeeef8;
+  --muted:   #6868a0;
+}
+
+
+/* ─────────────────────────────────────────
+   RESET / BASE
+───────────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Syne', sans-serif;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+.mono { font-family: 'JetBrains Mono', monospace; }
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+
+/* ─────────────────────────────────────────
+   NOISE OVERLAY
+   Identical technique to the learning page:
+   a fixed SVG fractal noise adds just enough
+   grain to prevent the dark background from
+   looking like a flat void.
+───────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+}
+
+
+/* ─────────────────────────────────────────
+   TOPBAR  (sticky header)
+───────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 50;
+  background: rgba(7,7,14,0.94);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(14px);
+  padding: 0 32px; height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.topbar-title { font-size: 15px; font-weight: 800; letter-spacing: 1px; }
+.topbar-title span { color: var(--accent); }
+.topbar-badge {
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--border); border-radius: 100px;
+  padding: 3px 12px; background: var(--surface2);
+}
+
+
+/* ─────────────────────────────────────────
+   PAGE LAYOUT
+───────────────────────────────────────── */
+.main-wrap {
+  position: relative; z-index: 1;
+  max-width: 1100px; margin: 0 auto;
+  padding: 48px 24px 80px;
+}
+
+
+/* ─────────────────────────────────────────
+   CARD  (rounded content containers)
+───────────────────────────────────────── */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px; padding: 28px;
+  position: relative; overflow: hidden;
+}
+.card-label {
+  font-size: 10px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 18px;
+}
+
+
+/* ─────────────────────────────────────────
+   FORM ELEMENTS
+───────────────────────────────────────── */
+.styled-select {
+  width: 100%;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 11px 16px;
+  border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; outline: none; appearance: none; cursor: pointer;
+  transition: border-color 0.2s;
+  /* custom chevron arrow */
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%236868a0' d='M1 1l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 14px center;
+  padding-right: 36px;
+}
+.styled-select:focus { border-color: var(--accent); }
+
+.styled-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 9px 14px;
+  border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+  font-size: 13px; outline: none; width: 100%;
+  transition: border-color 0.2s;
+}
+.styled-input:focus { border-color: var(--accent); }
+
+/* left-bordered description box shown below the algo selector */
+.algo-desc {
+  background: #0a0a16; border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 10px 10px 0;
+  padding: 14px 16px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; color: var(--muted); line-height: 1.7;
+}
+
+
+/* ─────────────────────────────────────────
+   BUTTONS
+───────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 22px; border-radius: 10px;
+  font-size: 13px; font-weight: 700; cursor: pointer;
+  border: none; transition: all 0.18s;
+  font-family: 'Syne', sans-serif; letter-spacing: 0.5px;
+}
+
+.btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: #1e1e30; border-color: #3a3a58; }
+
+/* purple gradient — used for Step */
+.btn-step {
+  background: linear-gradient(135deg, #5b4ccc, #8b75ff);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(139,117,255,0.35);
+}
+.btn-step:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(139,117,255,0.55); }
+
+/* green gradient — used for Auto */
+.btn-auto {
+  background: linear-gradient(135deg, #1a8a5a, #3dffa0);
+  color: #07070e;
+  box-shadow: 0 0 20px rgba(61,255,160,0.3);
+}
+.btn-auto:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(61,255,160,0.5); }
+
+/* full-width purple-to-red gradient — main submit button */
+.btn-run {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  color: #fff; font-size: 14px; padding: 13px;
+  box-shadow: 0 0 28px rgba(139,117,255,0.35);
+}
+.btn-run:hover { transform: translateY(-1px); box-shadow: 0 0 44px rgba(139,117,255,0.55); }
+
+
+/* ─────────────────────────────────────────
+   PROCESS CARDS
+   Each process in the input list gets one of
+   these. The procEnter animation fires when the
+   card is added to the DOM so you see it slide
+   in rather than snap into existence.
+───────────────────────────────────────── */
+.proc-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 14px 16px;
+  display: flex; align-items: center; gap: 14px;
+  transition: border-color 0.2s, transform 0.15s;
+  animation: procEnter 0.3s cubic-bezier(0.22,1,0.36,1) both;
+}
+@keyframes procEnter {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.proc-card:hover { border-color: #3a3a58; }
+
+.proc-badge {
+  width: 44px; height: 44px; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px;
+  font-family: 'JetBrains Mono', monospace; flex-shrink: 0;
+}
+
+.proc-fields {
+  display: flex; gap: 10px; flex-wrap: wrap; flex: 1;
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+}
+.proc-field label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); }
+.proc-field input {
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--text); padding: 5px 8px; border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  outline: none; width: 52px; text-align: center;
+  transition: border-color 0.2s;
+}
+.proc-field input:focus { border-color: var(--accent); }
+
+/* PR field lights up green when a Priority algorithm is selected */
+.proc-field.pr-active input { border-color: var(--accent3); color: var(--accent3); }
+
+.proc-remove {
+  background: none; border: none; cursor: pointer;
+  color: #333352; font-size: 16px;
+  transition: color 0.2s; padding: 4px; border-radius: 4px; flex-shrink: 0;
+}
+.proc-remove:hover { color: var(--accent2); }
+
+
+/* ─────────────────────────────────────────
+   GANTT CHART
+───────────────────────────────────────── */
+.gantt-wrap { width: 100%; overflow-x: auto; padding-bottom: 34px; }
+.gantt-row  { display: flex; min-width: 100%; height: 52px; overflow: visible; }
+
+.gantt-block {
+  height: 100%; display: flex; align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px; font-weight: 700;
+  position: relative; border-right: 1px solid rgba(0,0,0,0.25);
+  min-width: 28px;
+  transform-origin: left center; /* needed for scaleX entrance animation */
+}
+
+.gantt-block .g-tick {
+  position: absolute; bottom: -22px;
+  font-size: 10px; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace; white-space: nowrap;
+}
+.gantt-block .g-tick-start { left: 0; transform: translateX(-50%); }
+.gantt-block .g-tick-end   { right: 0; transform: translateX(50%); }
+
+
+/* ─────────────────────────────────────────
+   GANTT ANIMATIONS
+
+   gb-enter  — block scales in from the left edge
+               on a full run (staggered by index)
+   upcoming  — block is dimmed before it's reached
+               in step/auto mode
+   active-block — the block currently executing;
+               pulses with a brightness animation
+───────────────────────────────────────── */
+@keyframes ganttEnter {
+  from { opacity: 0; transform: scaleX(0); }
+  to   { opacity: 1; transform: scaleX(1); }
+}
+.gantt-block.gb-enter {
+  animation: ganttEnter 0.28s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+.gantt-block.upcoming { opacity: 0.06; }
+
+.gantt-block.active-block {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.22), inset 0 0 18px rgba(255,255,255,0.1);
+  animation: activeGlow 0.85s ease-in-out infinite alternate;
+  z-index: 2;
+}
+@keyframes activeGlow {
+  from { filter: brightness(1) saturate(1); }
+  to   { filter: brightness(1.5) saturate(1.3); }
+}
+
+
+/* ─────────────────────────────────────────
+   RESULTS TABLE
+───────────────────────────────────────── */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table th {
+  font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--muted); padding: 12px 16px; text-align: center;
+  border-bottom: 1px solid var(--border);
+  font-family: 'JetBrains Mono', monospace; font-weight: 600;
+}
+.data-table td {
+  padding: 11px 16px; font-size: 13px; text-align: center;
+  font-family: 'JetBrains Mono', monospace;
+  border-bottom: 1px solid #14141f;
+}
+.data-table tbody tr:last-child td { border-bottom: none; }
+
+/* rows slide in from the left when the table is first rendered */
+@keyframes rowEnter {
+  from { opacity: 0; transform: translateX(-14px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.data-table tbody tr {
+  animation: rowEnter 0.3s cubic-bezier(0.22,1,0.36,1) both;
+}
+
+/* step/auto mode row states */
+.data-table tbody tr.row-pending td { opacity: 0.15; }
+.data-table tbody tr.row-active  td { background: rgba(139,117,255,0.07); }
+.data-table tbody tr.row-done    td { opacity: 1; }
+
+
+/* ─────────────────────────────────────────
+   METRIC BLOCKS  (avg WT, avg TAT, etc.)
+───────────────────────────────────────── */
+.metric-block { display: flex; flex-direction: column; gap: 4px; }
+.metric-block .m-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+.metric-block .m-formula {
+  font-size: 11px; color: #383858;
+  font-family: 'JetBrains Mono', monospace; line-height: 1.4;
+}
+.metric-block .m-value { font-size: 28px; font-weight: 800; line-height: 1.1; }
+
+/* metric values bounce in one at a time after the sim completes */
+@keyframes metricPop {
+  0%   { opacity: 0; transform: scale(0.65) translateY(10px); }
+  65%  { transform: scale(1.08) translateY(-2px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+.metric-pop { animation: metricPop 0.42s cubic-bezier(0.22,1,0.36,1) both; }
+
+
+/* ─────────────────────────────────────────
+   RESULTS CONTAINER ENTRANCE
+───────────────────────────────────────── */
+@keyframes popUp {
+  from { opacity: 0; transform: translateY(28px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.pop-up { animation: popUp 0.42s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+
+/* ─────────────────────────────────────────
+   PLAYBACK BAR  (speed + clock + status)
+   Hidden by default, shown once Step or Auto
+   is triggered for the first time.
+───────────────────────────────────────── */
+.playback-bar {
+  display: none; margin-top: 12px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 14px;
+}
+
+
+/* ─────────────────────────────────────────
+   PROCESS BADGE COLORS  (pc-0 … pc-6)
+   Used in the process input cards and in the
+   results table. Semi-transparent so the dark
+   background shows through.
+───────────────────────────────────────── */
+.pc-0 { background: rgba(139,117,255,0.22); color: #c0b0ff; border: 1px solid rgba(139,117,255,0.5); }
+.pc-1 { background: rgba(255,95,95,0.22);   color: #ffaaaa; border: 1px solid rgba(255,95,95,0.5); }
+.pc-2 { background: rgba(61,255,160,0.18);  color: #5fffc0; border: 1px solid rgba(61,255,160,0.5); }
+.pc-3 { background: rgba(255,179,64,0.2);   color: #ffd080; border: 1px solid rgba(255,179,64,0.5); }
+.pc-4 { background: rgba(255,90,210,0.2);   color: #ffb0f0; border: 1px solid rgba(255,90,210,0.5); }
+.pc-5 { background: rgba(60,200,255,0.18);  color: #90deff; border: 1px solid rgba(60,200,255,0.5); }
+.pc-6 { background: rgba(255,230,80,0.18);  color: #ffe87a; border: 1px solid rgba(255,230,80,0.5); }
+
+
+/* ─────────────────────────────────────────
+   GANTT BLOCK COLORS  (gb-0 … gb-6)
+   More saturated than the badge colors so the
+   Gantt is readable even on small blocks.
+───────────────────────────────────────── */
+.gb-0 { background: rgba(139,117,255,0.55); color: #fff; }
+.gb-1 { background: rgba(255,95,95,0.55);   color: #fff; }
+.gb-2 { background: rgba(61,255,160,0.45);  color: #07070e; }
+.gb-3 { background: rgba(255,179,64,0.5);   color: #07070e; }
+.gb-4 { background: rgba(255,90,210,0.5);   color: #fff; }
+.gb-5 { background: rgba(60,200,255,0.45);  color: #07070e; }
+.gb-6 { background: rgba(255,230,80,0.45);  color: #07070e; }
+.gb-idle { background: rgba(255,255,255,0.05); color: #44445a; border: 1px dashed #252538; }
+
+
+/* ─────────────────────────────────────────
+   EMPTY STATE  (shown when process list is empty)
+───────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted); font-size: 13px;
+  font-family: 'JetBrains Mono', monospace;
+  grid-column: 1 / -1;
+}
+.empty-state .e-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; display: block; }
+
+
+/* ─────────────────────────────────────────
+   RESPONSIVE LAYOUT GRIDS
+───────────────────────────────────────── */
+@media (min-width: 900px)  { .top-grid       { display: grid; grid-template-columns: 320px 1fr; gap: 20px; } }
+@media (max-width: 899px)  { .top-grid       { display: flex; flex-direction: column; gap: 16px; } }
+@media (min-width: 640px)  { .proc-grid      { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; } }
+@media (max-width: 639px)  { .proc-grid      { display: flex; flex-direction: column; gap: 8px; } }
+@media (min-width: 800px)  { .results-bottom { display: grid; grid-template-columns: 1fr 280px; gap: 20px; } }
+@media (max-width: 799px)  { .results-bottom { display: flex; flex-direction: column; gap: 16px; } }
+
+.section-sep { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
