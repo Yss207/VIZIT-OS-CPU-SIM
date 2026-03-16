@@ -3,7 +3,7 @@
   simulator.css
 
   Fonts loaded via Google Fonts in simulator.html:
-    Syne           — headings, buttons, UI labels
+    DM Sans           — headings, buttons, UI labels
     JetBrains Mono — all numeric data, code, Gantt labels
 */
 
@@ -37,9 +37,15 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   min-height: 100vh;
   overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: 'Platypi', serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 .mono { font-family: 'JetBrains Mono', monospace; }
@@ -158,7 +164,7 @@ body::before {
   padding: 10px 22px; border-radius: 10px;
   font-size: 13px; font-weight: 700; cursor: pointer;
   border: none; transition: all 0.18s;
-  font-family: 'Syne', sans-serif; letter-spacing: 0.5px;
+  font-family: 'DM Sans', sans-serif; letter-spacing: 0.5px;
 }
 
 .btn-ghost { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }

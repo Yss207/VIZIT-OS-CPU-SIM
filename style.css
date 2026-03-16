@@ -3,7 +3,7 @@
   style.css
   
   Fonts loaded via Google Fonts in index.html:
-    Syne       — headings, UI labels, buttons
+    DM Sans       — headings, UI labels, buttons
     JetBrains Mono — code, data, formulas, Gantt labels
 */
 
@@ -42,8 +42,14 @@ html { scroll-behavior: smooth; }
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   overflow-x: hidden;
+}
+
+h1, h2, h3 {
+  font-family: 'Platypi', serif;
+  font-weight: 700;
+  letter-spacing: -0.5px;
 }
 
 code, .mono {
@@ -278,7 +284,7 @@ body::before {
   border: 1px solid var(--border); background: var(--surface);
   color: var(--text); font-size: 13px; font-weight: 700;
   cursor: pointer; transition: all 0.2s;
-  font-family: 'Syne', sans-serif; text-decoration: none;
+  font-family: 'DM Sans', sans-serif; text-decoration: none;
 }
 .phase-transition .next-btn:hover {
   border-color: var(--accent); background: #1a1a2a;
@@ -371,7 +377,7 @@ body::before {
   padding: 10px 22px; border-radius: 10px;
   font-size: 13px; font-weight: 700;
   cursor: pointer; border: none; transition: all 0.2s;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
 }
 .btn-primary { background: var(--accent); color: #fff; }
 .btn-primary:hover { background: #9080ff; transform: translateY(-1px); }
@@ -439,7 +445,7 @@ body::before {
   position: absolute; right: 32px; top: 16px;
   font-size: 120px; font-weight: 900;
   color: #ffffff06;
-  font-family: 'Syne', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   line-height: 1;
 }
 .question-card-processes {
