@@ -1,1058 +1,1577 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
-  <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>CPU Scheduling — From Zero to Simulator</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CPU Scheduling: From Zero to Simulator</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
-  <!-- VISUALIZE IT — Shared Font System (from PRO V2) -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link
-    href="https://fonts.googleapis.com/css2?family=Platypi:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=JetBrains+Mono:wght@300;400;500;700&display=swap"
-    rel="stylesheet"/>
-  <link rel="stylesheet" href="style.css"/>
+    href="https://fonts.googleapis.com/css2?family=Platypi:wght@300;400;600;700;800&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&family=JetBrains+Mono:wght@300;400;500;700&display=swap"
+    rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
 </head>
+
 <body>
 
-<!-- ═══ PHASE BAR (fixed top) ═══ -->
-<div id="phase-bar">
-  <div class="phase-step active" id="pbar-foundations">
-    <div class="phase-icon" id="picon-foundations">1</div>
-    <span class="phase-label">Foundations</span>
-  </div>
-  <span class="phase-sep">→</span>
-  <div class="phase-step" id="pbar-scheduling">
-    <div class="phase-icon" id="picon-scheduling">2</div>
-    <span class="phase-label">Scheduling</span>
-  </div>
-  <span class="phase-sep">→</span>
-  <div class="phase-step" id="pbar-algorithms">
-    <div class="phase-icon" id="picon-algorithms">3</div>
-    <span class="phase-label">Algorithms</span>
-  </div>
-  <span class="phase-sep">→</span>
-  <div class="phase-step" id="pbar-simulator">
-    <div class="phase-icon" id="picon-simulator">4</div>
-    <span class="phase-label">Simulator</span>
-  </div>
-</div>
-
-<!-- ═══ SIDE NAV (grouped) ═══ -->
-<nav id="progress-nav">
-  <div class="nav-group">
-    <div class="nav-dot phase-foundations active" data-target="hero"><span class="tooltip">Start</span></div>
-  </div>
-  <div class="nav-group">
-    <div class="nav-group-label">01</div>
-    <div class="nav-dot phase-foundations" data-target="what-cpu"><span class="tooltip">How CPU Works</span></div>
-    <div class="nav-dot phase-foundations" data-target="what-process"><span class="tooltip">Program → Process</span></div>
-    <div class="nav-dot phase-foundations" data-target="cpu-exec"><span class="tooltip">CPU Burst vs I/O</span></div>
-    <div class="nav-dot phase-foundations" data-target="state-diagram"><span class="tooltip">State Diagram</span></div>
-  </div>
-  <div class="nav-group">
-    <div class="nav-group-label">02</div>
-    <div class="nav-dot phase-scheduling" data-target="what-sched"><span class="tooltip">What is Scheduling?</span></div>
-    <div class="nav-dot phase-scheduling" data-target="why"><span class="tooltip">Why Scheduling?</span></div>
-    <div class="nav-dot phase-scheduling" data-target="metrics"><span class="tooltip">Key Metrics</span></div>
-  </div>
-  <div class="nav-group">
-    <div class="nav-group-label">03</div>
-    <div class="nav-dot phase-algorithms" data-target="fcfs"><span class="tooltip">FCFS</span></div>
-    <div class="nav-dot phase-algorithms" data-target="sjf"><span class="tooltip">SJF / SRTF</span></div>
-    <div class="nav-dot phase-algorithms" data-target="priority"><span class="tooltip">Priority</span></div>
-    <div class="nav-dot phase-algorithms" data-target="rr"><span class="tooltip">Round Robin</span></div>
-    <div class="nav-dot phase-algorithms" data-target="comparison"><span class="tooltip">Algorithm Chooser</span></div>
-  </div>
-  <div class="nav-group">
-    <div class="nav-dot phase-simulator" data-target="simulator"><span class="tooltip">Simulator</span></div>
-  </div>
-</nav>
-
-<!-- ═══ HERO — Live competing processes animation ═══ -->
-<section id="hero" class="section min-h-screen flex items-center relative overflow-hidden">
-  <div class="grid-lines"></div>
-  <div class="orb" style="width:500px;height:500px;background:var(--accent);top:-100px;right:-100px;"></div>
-  <div class="orb" style="width:300px;height:300px;background:var(--accent2);bottom:100px;left:-50px;"></div>
-  <div class="max-w-5xl mx-auto px-8 w-full relative z-10">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent3);"></span>Operating Systems</div>
-    <h1 class="text-6xl md:text-8xl font-extrabold leading-none tracking-tight mb-6">
-      CPU<br/><span style="color:var(--accent);">Scheduling</span>
-    </h1>
-    <p class="text-xl text-gray-400 max-w-xl leading-relaxed mb-8" style="font-weight:400;">
-      A ground-up, interactive walkthrough — from the hardware to the algorithms.
-      By the end, the simulator will make complete sense.
-    </p>
-    <div class="flex flex-wrap gap-3 mb-10">
-      <span class="proc-pill" style="background:#1e1a38;color:var(--p1);">FCFS</span>
-      <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SJF / SRTF</span>
-      <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority</span>
-      <span class="proc-pill" style="background:#1f1a10;color:var(--p4);">Round Robin</span>
+  <!-- ═══════════════════════════════════════════
+     PHASE PROGRESS BAR
+     Fixed top strip: Foundations → Scheduling → Algorithms → Simulator
+═══════════════════════════════════════════ -->
+  <div id="phase-bar">
+    <div class="phase-step active" id="pbar-foundations"
+      onclick="document.getElementById('what-cpu').scrollIntoView({behavior:'smooth'})">
+      <div class="phase-icon" id="picon-foundations">1</div>
+      <span class="phase-label">Foundations</span>
     </div>
-    <!-- Live competing processes — hero is alive -->
-    <div class="viz-box max-w-2xl">
-      <div class="viz-header">
-        <span class="viz-title">Multiple processes — one CPU — who runs next?</span>
-        <span class="mono text-xs" style="color:var(--accent3);">● LIVE</span>
+    <span class="phase-sep">→</span>
+    <div class="phase-step" id="pbar-scheduling"
+      onclick="document.getElementById('what-sched').scrollIntoView({behavior:'smooth'})">
+      <div class="phase-icon" id="picon-scheduling">2</div>
+      <span class="phase-label">Scheduling</span>
+    </div>
+    <span class="phase-sep">→</span>
+    <div class="phase-step" id="pbar-algorithms"
+      onclick="document.getElementById('fcfs').scrollIntoView({behavior:'smooth'})">
+      <div class="phase-icon" id="picon-algorithms">3</div>
+      <span class="phase-label">Algorithms</span>
+    </div>
+    <span class="phase-sep">→</span>
+    <div class="phase-step" id="pbar-simulator"
+      onclick="document.getElementById('simulator').scrollIntoView({behavior:'smooth'})">
+      <div class="phase-icon" id="picon-simulator">▶</div>
+      <span class="phase-label">Simulator</span>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════
+     SIDE NAVIGATION — grouped by phase
+═══════════════════════════════════════════ -->
+  <nav id="progress-nav">
+
+    <div class="nav-group">
+      <div class="nav-dot phase-foundations active" data-target="hero">
+        <span class="tooltip">Start</span>
       </div>
-      <div class="viz-body" style="padding:16px 24px;">
-        <div id="hero-compete" class="space-y-2 mb-4"></div>
-        <div style="height:1px;background:var(--border);margin:12px 0;"></div>
-        <div class="flex items-center gap-3">
-          <div style="font-size:10px;color:var(--muted);font-family:JetBrains Mono;letter-spacing:1px;">CPU →</div>
-          <div id="hero-cpu-bar" style="flex:1;height:32px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:700;font-family:JetBrains Mono;color:var(--muted);">waiting...</div>
+    </div>
+
+    <!-- Phase 1: Foundations (4 sections) -->
+    <div class="nav-group">
+      <div class="nav-group-label">01</div>
+      <div class="nav-dot phase-foundations" data-target="what-cpu">
+        <span class="tooltip">How CPU Works</span>
+      </div>
+      <div class="nav-dot phase-foundations" data-target="what-process">
+        <span class="tooltip">Program → Process</span>
+      </div>
+      <div class="nav-dot phase-foundations" data-target="cpu-exec">
+        <span class="tooltip">CPU Burst vs I/O</span>
+      </div>
+      <div class="nav-dot phase-foundations" data-target="state-diagram">
+        <span class="tooltip">Process States</span>
+      </div>
+    </div>
+
+    <!-- Phase 2: Scheduling Concepts -->
+    <div class="nav-group">
+      <div class="nav-group-label">02</div>
+      <div class="nav-dot phase-scheduling" data-target="what-sched">
+        <span class="tooltip">What is Scheduling?</span>
+      </div>
+      <div class="nav-dot phase-scheduling" data-target="why">
+        <span class="tooltip">Why Scheduling?</span>
+      </div>
+      <div class="nav-dot phase-scheduling" data-target="metrics">
+        <span class="tooltip">Key Metrics</span>
+      </div>
+    </div>
+
+    <!-- Phase 3: Algorithms -->
+    <div class="nav-group">
+      <div class="nav-group-label">03</div>
+      <div class="nav-dot phase-algorithms" data-target="fcfs">
+        <span class="tooltip">FCFS</span>
+      </div>
+      <div class="nav-dot phase-algorithms" data-target="sjf">
+        <span class="tooltip">SJF / SRTF</span>
+      </div>
+      <div class="nav-dot phase-algorithms" data-target="priority">
+        <span class="tooltip">Priority</span>
+      </div>
+      <div class="nav-dot phase-algorithms" data-target="rr">
+        <span class="tooltip">Round Robin</span>
+      </div>
+      <div class="nav-dot phase-algorithms" data-target="comparison">
+        <span class="tooltip">Comparison</span>
+      </div>
+      <div class="nav-dot phase-algorithms" data-target="simulator">
+        <span class="tooltip">Simulator</span>
+      </div>
+    </div>
+
+  </nav>
+
+
+  <!-- ═══════════════════════════════════════════
+     HERO — live competing processes animation
+═══════════════════════════════════════════ -->
+  <section id="hero" class="section min-h-screen flex items-center relative overflow-hidden" style="padding-top:120px;">
+    <div class="grid-lines"></div>
+    <div class="orb" style="width:500px;height:500px;background:var(--accent);top:-100px;right:-100px;"></div>
+    <div class="orb" style="width:300px;height:300px;background:var(--accent2);bottom:100px;left:-50px;"></div>
+    <div class="max-w-5xl mx-auto px-8 w-full relative z-10">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent3);"></span>
+        Operating Systems
+      </div>
+      <h1 class="text-6xl md:text-8xl font-extrabold leading-none tracking-tight mb-6">
+        CPU<br /><span style="color:var(--accent);">Scheduling</span>
+      </h1>
+      <p class="text-xl text-gray-400 max-w-xl leading-relaxed mb-8" style="font-weight:400;">
+        A ground-up, interactive walkthrough: from the hardware to the algorithms.
+        By the end, the simulator will make complete sense.
+      </p>
+      <div class="flex flex-wrap gap-3 mb-10">
+        <span class="proc-pill" style="background:#1e1a38;color:var(--p1);">FCFS</span>
+        <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SJF / SRTF</span>
+        <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority</span>
+        <span class="proc-pill" style="background:#1f1a10;color:var(--p4);">Round Robin</span>
+      </div>
+      <!-- Live competing processes viz -->
+      <div class="viz-box max-w-2xl">
+        <div class="viz-header">
+          <span class="viz-title">Multiple processes — one CPU — who runs next?</span>
+          <span class="mono text-xs" style="color:var(--accent3);">● LIVE</span>
         </div>
-        <p class="text-xs mt-3" style="color:var(--muted);">The scheduler decides which of these gets the CPU — and for how long. That decision is everything.</p>
+        <div class="viz-body" style="padding:16px 24px;">
+          <div id="hero-compete" class="space-y-2 mb-4"></div>
+          <div style="height:1px;background:var(--border);margin:12px 0;"></div>
+          <div class="flex items-center gap-3">
+            <div style="font-size:10px;color:var(--muted);font-family:JetBrains Mono;letter-spacing:1px;">CPU →</div>
+            <div id="hero-cpu-bar"
+              style="flex:1;height:32px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);display:flex;align-items:center;padding:0 12px;font-size:12px;font-weight:700;font-family:JetBrains Mono;color:var(--muted);">
+              waiting...</div>
+          </div>
+          <p class="text-xs mt-3" style="color:var(--muted);">The scheduler decides which of these gets the CPU — and
+            for how long. That decision is everything.</p>
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
-<!-- ═══ FOUNDATION 01 — CPU + Context Switch viz ═══ -->
-<section id="what-cpu" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent);"></span>Foundation 01</div>
-    <h2 class="text-4xl font-extrabold mb-3">How the CPU Executes Instructions</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">The CPU runs exactly one process at a time. Scheduling is the decision of which one.</p>
 
-    <div class="grid md:grid-cols-2 gap-8 items-start mb-10">
-      <div class="space-y-4">
+  <!-- ═══════════════════════════════════════════
+     PHASE 1: FOUNDATIONS
+═══════════════════════════════════════════ -->
+
+  <!-- Foundation 01: How the CPU Executes Instructions + Context Switch -->
+  <section id="what-cpu" class="section" style="padding-top:100px;">
+    <div class="max-w-5xl mx-auto px-8 w-full relative z-10 flex flex-col items-center text-center">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent);"></span>
+        Phase 1 · Foundations
+      </div>
+      <h2 class="text-4xl font-extrabold mb-3">How the CPU Executes Instructions</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        The CPU is the only resource that actually runs your code. Understanding it — and how the OS switches between
+        processes — is the first step to understanding scheduling.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-8 items-start mb-10">
+
+        <!-- Theory cards: one rule + FDE cycle + context switch card (v4 addition) -->
+        <div class="space-y-4 text-left">
+          <div class="theory-card accent-purple">
+            <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">THE ONE RULE</div>
+            <p class="text-sm text-gray-300 leading-relaxed">
+              A CPU can run <strong>exactly one process at a time</strong> per core.
+              It doesn't multitask; it switches between processes so fast it <em>appears</em> simultaneous.
+            </p>
+          </div>
+          <div class="theory-card accent-green">
+            <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">WHAT IT DOES</div>
+            <p class="text-sm text-gray-300 leading-relaxed">The CPU runs a simple loop forever, billions of times per
+              second:</p>
+            <div class="flex gap-2 mt-3 flex-wrap">
+              <span class="proc-pill" style="background:#1e1a38;color:#a99aff;">① FETCH</span>
+              <span style="color:#444;line-height:28px;">→</span>
+              <span class="proc-pill" style="background:#1f1a10;color:#ffd098;">② DECODE</span>
+              <span style="color:#444;line-height:28px;">→</span>
+              <span class="proc-pill" style="background:#1f1324;color:#ff9a9a;">③ EXECUTE</span>
+            </div>
+            <div class="mt-4 space-y-2 text-sm text-gray-300 leading-relaxed">
+              <p><span style="color:#a99aff;font-weight:700;">Fetch</span> — The CPU grabs the next instruction from
+                memory.</p>
+              <p><span style="color:#ffd098;font-weight:700;">Decode</span> — The control unit interprets what that
+                instruction means.</p>
+              <p><span style="color:#ff9a9a;font-weight:700;">Execute</span> — The CPU performs the action and stores
+                the result.</p>
+            </div>
+          </div>
+          <!-- Context Switch card (from v4) -->
+
+        </div>
+
+        <!-- anime.js CPU chip visualization (kept from base) -->
+        <div class="viz-box">
+          <div class="viz-header">
+            <span class="viz-title">CPU: Live Execution Model</span>
+            <button class="btn btn-ghost text-xs" onclick="restartCPUAnim()">Restart ↺</button>
+          </div>
+          <div class="viz-body flex justify-center items-center" style="min-height:380px;">
+            <div id="cpu-anime-viz" style="position:relative;width:320px;min-height:360px;"></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Context Switch animated viz (from v4) -->
+
+
+    </div>
+  </section>
+
+
+  <!-- Foundation 02: Program → Process -->
+  <section id="what-process" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent2);"></span>
+        Foundation 02
+      </div>
+      <h2 class="text-4xl font-extrabold mb-3">Program → Process</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        A program sitting on disk does nothing. The moment the OS runs it, it becomes a process.
+      </p>
+
+      <!-- anime.js transformation sequence -->
+      <div class="viz-box mb-8">
+        <div class="viz-header">
+          <span class="viz-title">The Transformation: Watch it happen</span>
+          <button class="btn btn-ghost text-xs" onclick="animateProgramToProcess()">Replay ↺</button>
+        </div>
+        <div class="viz-body" style="min-height:240px;display:flex;align-items:center;justify-content:center;">
+          <div id="prog-proc-viz"
+            style="width:100%;display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:nowrap;"></div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
         <div class="theory-card accent-purple">
-          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">THE ONE RULE</div>
-          <p class="text-sm text-gray-300 leading-relaxed">A CPU can run <strong>exactly one process at a time</strong> per core. It switches between processes so fast it <em>appears</em> simultaneous. That switching is scheduling.</p>
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">PROGRAM</div>
+          <p class="text-sm text-gray-300">
+            A static file on disk: <code>.exe</code>, <code>.out</code>, a Python script.
+            Just stored bytes. Does nothing until executed.
+          </p>
         </div>
         <div class="theory-card accent-green">
-          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">WHAT IT DOES</div>
-          <p class="text-sm text-gray-300 mb-3">The CPU runs a simple loop forever, billions of times per second:</p>
-          <div class="flex gap-2 mt-3 flex-wrap items-center">
-            <span class="proc-pill" style="background:#1e1a38;color:#a99aff;">① FETCH</span>
-            <span style="color:#444;">→</span>
-            <span class="proc-pill" style="background:#1f1a10;color:#ffd098;">② DECODE</span>
-            <span style="color:#444;">→</span>
-            <span class="proc-pill" style="background:#1f1324;color:#ff9a9a;">③ EXECUTE</span>
-          </div>
-          <div class="mt-4 space-y-2 text-sm text-gray-300">
-            <p><span style="color:#a99aff;font-weight:700;">Fetch</span> — The CPU grabs the next instruction from memory using the Program Counter.</p>
-            <p><span style="color:#ffd098;font-weight:700;">Decode</span> — The control unit interprets what that instruction means (add, jump, load…).</p>
-            <p><span style="color:#ff9a9a;font-weight:700;">Execute</span> — The ALU performs the operation and stores the result in a register.</p>
-          </div>
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">PROCESS</div>
+          <p class="text-sm text-gray-300">
+            A <em>running instance</em> of a program. The OS loads it into RAM,
+            gives it resources, and hands it to the CPU.
+          </p>
         </div>
-      </div>
-      <!-- Live CPU chip animation -->
-      <div class="viz-box">
-        <div class="viz-header">
-          <span class="viz-title">CPU: Live Execution Model</span>
-          <button class="btn btn-ghost text-xs" onclick="restartCPUAnim()">Restart ↺</button>
-        </div>
-        <div class="viz-body flex justify-center items-center" style="min-height:380px;">
-          <div id="cpu-anime-viz" style="position:relative;width:320px;min-height:360px;"></div>
+        <div class="theory-card accent-orange">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent4);">KEY POINT</div>
+          <p class="text-sm text-gray-300">
+            Multiple processes can run from one program.
+            Three Chrome windows = one program, three independent processes.
+          </p>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Context Switch section below -->
-    <div class="grid md:grid-cols-2 gap-8 items-start mb-8">
-      <div class="theory-card accent-orange">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent4);">CONTEXT SWITCH</div>
-        <p class="text-sm text-gray-300">When the OS switches processes, it must <strong>save</strong> the current process's registers, program counter, and state — then <strong>load</strong> the next process's saved state. The CPU has no memory between runs. This save/restore is a <strong>context switch</strong>.</p>
-      </div>
-      <!-- Context switch animation -->
-      <div class="viz-box">
-        <div class="viz-header">
-          <span class="viz-title">Context Switch — Animated</span>
-          <button class="btn btn-ghost text-xs" onclick="animateContextSwitch()">Replay ↺</button>
-        </div>
-        <div class="viz-body" style="min-height:220px;display:flex;flex-direction:column;gap:12px;">
-          <div id="ctx-cpu-box" style="background:#1a1a2e;border:2px solid var(--accent);border-radius:12px;padding:16px;text-align:center;">
-            <div style="font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;">CPU</div>
-            <div id="ctx-running-label" style="font-size:22px;font-weight:800;color:var(--accent);font-family:JetBrains Mono;">—</div>
-            <div id="ctx-pc" style="font-size:10px;color:var(--muted);font-family:JetBrains Mono;margin-top:4px;">PC: —</div>
-          </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
-              <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">P1 SAVED STATE</div>
-              <div id="ctx-p1-state" style="font-size:11px;color:#a99aff;font-family:JetBrains Mono;opacity:0.4;">PC=0x00A<br/>R1=12, R2=7</div>
-            </div>
-            <div style="background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px;">
-              <div style="font-size:9px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">P2 SAVED STATE</div>
-              <div id="ctx-p2-state" style="font-size:11px;color:#ff9a9a;font-family:JetBrains Mono;opacity:0.4;">PC=0x03F<br/>R1=44, R2=2</div>
-            </div>
-          </div>
-          <div id="ctx-log" class="highlight-box text-xs" style="font-size:11px;">Press Replay to see a context switch happen.</div>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
 
-<!-- ═══ FOUNDATION 02 — Program → Process ═══ -->
-<section id="what-process" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent2);"></span>Foundation 02</div>
-    <h2 class="text-4xl font-extrabold mb-3">Program → Process</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">A program on disk does nothing. The moment the OS runs it — it becomes a process.</p>
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">The Transformation — Watch it happen</span>
-        <button class="btn btn-ghost text-xs" onclick="animateProgramToProcess()">Replay ↺</button>
+  <!-- Foundation 03: CPU Burst vs I/O Burst (new from v4) -->
+  <section id="cpu-exec" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent3);"></span>
+        Foundation 03
       </div>
-      <div class="viz-body" style="min-height:200px;display:flex;align-items:center;justify-content:center;">
-        <div id="prog-proc-viz" style="width:100%;display:flex;align-items:center;justify-content:center;gap:0;flex-wrap:wrap;"></div>
-      </div>
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">PROGRAM</div>
-        <p class="text-sm text-gray-300">A static file on disk — <code>.exe</code>, <code>.out</code>, a Python script. Just stored bytes. Does nothing until the OS loads it.</p>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">PROCESS</div>
-        <p class="text-sm text-gray-300">A <em>running instance</em> of a program. It has memory, a program counter, register values, and a state. Three Chrome windows = one program, three independent processes.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ FOUNDATION 03 — CPU Burst vs I/O Burst ═══ -->
-<section id="cpu-exec" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent3);"></span>Foundation 03</div>
-    <h2 class="text-4xl font-extrabold mb-3">CPU Burst vs I/O Burst</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">Processes don't use the CPU non-stop. They alternate — and this gap is where scheduling matters.</p>
-    <div class="grid md:grid-cols-2 gap-6 mb-6">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">CPU BURST</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ The process is <strong>actively using the CPU</strong> — calculations, logic, data processing</li>
-          <li>→ This is when it appears on a Gantt chart</li>
-          <li>→ Every process has at least one CPU burst</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-orange">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent4);">I/O BURST</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Process is <strong>waiting for something external</strong> — disk, network, keyboard</li>
-          <li>→ CPU is completely free during this time</li>
-          <li>→ Without scheduling, that free CPU sits idle — wasted</li>
-        </ul>
-      </div>
-    </div>
-    <!-- Looping burst animation -->
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">CPU ↔ I/O Alternation — Live Loop</span>
-        <div class="flex items-center gap-3">
-          <div id="burst-speed-wrap" class="flex items-center gap-2">
-            <span class="text-xs" style="color:var(--muted);">Speed:</span>
-            <input type="range" id="burst-speed" min="200" max="1200" value="700" class="w-20"/>
-          </div>
-          <button class="btn btn-ghost text-xs" onclick="stopBurstLoop(); animateBurstLoop();">Restart ↺</button>
-        </div>
-      </div>
-      <div class="viz-body">
-        <div id="burst-viz" class="space-y-4 py-2"></div>
-        <div id="burst-log" class="highlight-box orange text-sm mt-5" style="opacity:0;transition:opacity 0.6s;">
-          While P1 waits for I/O, the CPU runs P2. <strong>No wasted cycles. This is the whole point of scheduling.</strong>
-        </div>
-      </div>
-    </div>
-    <div class="grid md:grid-cols-2 gap-4">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">CPU-BOUND</div>
-        <p class="text-sm text-gray-300">Long bursts, rare I/O. Examples: video encoding, ML training, scientific simulation.</p>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">I/O-BOUND</div>
-        <p class="text-sm text-gray-300">Short bursts, frequent waits. Examples: web servers, databases, file editors.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ FOUNDATION 04 — Process State Diagram ═══ -->
-<section id="state-diagram" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--p5);"></span>Foundation 04</div>
-    <h2 class="text-4xl font-extrabold mb-3">Process State Transition</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">A process moves through well-defined states. The scheduler controls the most important transition.</p>
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">State Transition Diagram — Click any state</span>
-        <button class="btn btn-ghost text-xs" onclick="resetStateViz()">Reset</button>
-      </div>
-      <div class="viz-body flex justify-center" style="overflow-x:auto;">
-        <canvas id="state-canvas" style="width:100%;display:block;cursor:pointer;"></canvas>
-      </div>
-    </div>
-    <div id="state-detail" class="hidden theory-card mb-6">
-      <div id="state-detail-title" class="text-xs font-bold tracking-widest mb-2"></div>
-      <p id="state-detail-text" class="text-sm text-gray-300"></p>
-    </div>
-    <div class="grid md:grid-cols-5 gap-3">
-      <div class="theory-card accent-purple text-center" style="padding:14px;cursor:pointer;" onclick="highlightStateFromCard('new')">
-        <div class="text-2xl mb-1">🆕</div><div class="text-xs font-bold" style="color:var(--accent);">NEW</div>
-        <div class="text-xs text-gray-400 mt-1">Just created</div>
-      </div>
-      <div class="theory-card accent-green text-center" style="padding:14px;cursor:pointer;" onclick="highlightStateFromCard('ready')">
-        <div class="text-2xl mb-1">⏳</div><div class="text-xs font-bold" style="color:var(--accent3);">READY</div>
-        <div class="text-xs text-gray-400 mt-1">Waiting for CPU</div>
-      </div>
-      <div class="theory-card accent-red text-center" style="padding:14px;cursor:pointer;border-color:var(--accent2);" onclick="highlightStateFromCard('running')">
-        <div class="text-2xl mb-1">⚡</div><div class="text-xs font-bold" style="color:var(--accent2);">RUNNING</div>
-        <div class="text-xs" style="color:var(--accent2);font-size:9px;font-weight:700;margin-top:2px;">← SCHEDULER</div>
-      </div>
-      <div class="theory-card accent-orange text-center" style="padding:14px;cursor:pointer;" onclick="highlightStateFromCard('waiting')">
-        <div class="text-2xl mb-1">💤</div><div class="text-xs font-bold" style="color:var(--accent4);">WAITING</div>
-        <div class="text-xs text-gray-400 mt-1">Blocked on I/O</div>
-      </div>
-      <div class="theory-card text-center" style="padding:14px;cursor:pointer;" onclick="highlightStateFromCard('terminated')">
-        <div class="text-2xl mb-1">✅</div><div class="text-xs font-bold" style="color:var(--muted);">TERMINATED</div>
-        <div class="text-xs text-gray-400 mt-1">Done</div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ FOUNDATION 05 — What is CPU Scheduling ═══ -->
-<section id="what-sched" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent4);"></span>Foundation 05</div>
-    <h2 class="text-4xl font-extrabold mb-3">What is CPU Scheduling?</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">Now that you understand CPUs, processes, and their states — here's the core problem.</p>
-
-    <!-- Queue animation -->
-    <div class="viz-box mb-8">
-      <div class="viz-header"><span class="viz-title">The Scheduling Problem — Animated</span><button class="btn btn-ghost text-xs" onclick="runQueueAnim()">Re-run ↺</button></div>
-      <div class="viz-body">
-        <div class="flex items-start gap-6 flex-wrap justify-center">
-          <div><div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE</div>
-            <div id="queue-viz" class="flex flex-col gap-2" style="min-height:140px;min-width:140px;"></div></div>
-          <div class="flex flex-col items-center justify-center gap-2 pt-6">
-            <div class="text-xs font-bold tracking-widest" style="color:var(--accent);">SCHEDULER</div>
-            <div style="font-size:26px;color:var(--accent);">⟶</div>
-            <div class="text-xs" style="color:var(--muted);">picks next</div>
-          </div>
-          <div class="flex flex-col items-center gap-2">
-            <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--muted);">CPU</div>
-            <div id="cpu-viz" class="w-28 h-28 rounded-2xl border-2 flex flex-col items-center justify-center gap-1" style="border-color:var(--accent);background:#1a1a2e;box-shadow:0 0 30px rgba(124,106,255,0.2);">
-              <div class="text-xs" style="color:var(--muted);">EXECUTING</div>
-              <div id="cpu-proc" class="text-2xl font-extrabold" style="color:var(--accent);">—</div>
-            </div>
-          </div>
-          <div class="flex flex-col items-center gap-2 pt-6"><div style="font-size:26px;color:var(--accent3);">⟶</div></div>
-          <div><div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">DONE</div>
-            <div id="done-viz" class="flex flex-col gap-2" style="min-height:140px;"></div></div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Definition -->
-    <div class="text-center py-10 px-4 mb-8">
-      <p class="text-2xl md:text-3xl font-extrabold leading-snug max-w-3xl mx-auto" style="color:var(--text);">
-        <span style="color:var(--accent);">CPU Scheduling</span> is the OS policy that decides<br/>
-        <span style="color:var(--accent3);">which process in the Ready Queue gets the CPU next</span> — and for how long.
+      <h2 class="text-4xl font-extrabold mb-3">CPU Burst vs I/O Burst</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        Processes don't use the CPU non-stop. They alternate — and this gap is exactly where scheduling matters.
       </p>
-      <p class="text-sm mt-4 max-w-xl mx-auto" style="color:var(--muted);">This single decision, made thousands of times per second, determines how fast your system feels, how fairly resources are shared, and whether any process gets starved.</p>
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">CPU BURST</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ The process is <strong>actively using the CPU</strong> — calculations, logic, data processing</li>
+            <li>→ This is when it appears on a Gantt chart</li>
+            <li>→ Every process has at least one CPU burst</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-orange">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent4);">I/O BURST</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Process is <strong>waiting for something external</strong> — disk, network, keyboard</li>
+            <li>→ CPU is completely free during this time</li>
+            <li>→ Without scheduling, that free CPU sits idle — wasted</li>
+          </ul>
+        </div>
+      </div>
+      <!-- Looping CPU ↔ I/O animation (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">CPU ↔ I/O Alternation — Live Loop</span>
+          <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="text-xs" style="color:var(--muted);">Speed:</span>
+              <input type="range" id="burst-speed" min="200" max="1200" value="700" class="w-20" />
+            </div>
+            <button class="btn btn-ghost text-xs" onclick="stopBurstLoop(); animateBurstLoop();">Restart ↺</button>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div id="burst-viz" class="space-y-4 py-2"></div>
+          <div id="burst-log" class="highlight-box orange text-sm mt-5" style="opacity:0;transition:opacity 0.6s;">
+            While P1 waits for I/O, the CPU runs P2. <strong>No wasted cycles. This is the whole point of
+              scheduling.</strong>
+          </div>
+        </div>
+      </div>
+      <div class="grid md:grid-cols-2 gap-4">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">CPU-BOUND</div>
+          <p class="text-sm text-gray-300">Long bursts, rare I/O. Examples: video encoding, ML training, scientific
+            simulation.</p>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">I/O-BOUND</div>
+          <p class="text-sm text-gray-300">Short bursts, frequent waits. Examples: web servers, databases, file editors.
+          </p>
+        </div>
+      </div>
     </div>
+  </section>
 
-    <!-- Preemptive vs Non-Preemptive -->
-    <div class="viz-box mb-8">
-      <div class="viz-header"><span class="viz-title">Classification Axis — Preemptive vs Non-Preemptive</span></div>
-      <div class="viz-body">
-        <div class="grid md:grid-cols-2 gap-6">
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">NON-PREEMPTIVE</div>
-            <p class="text-sm text-gray-300 mb-3">Once a process starts running, it keeps the CPU until it <strong>voluntarily</strong> gives it up — either by finishing or by requesting I/O. The scheduler cannot interrupt it.</p>
-            <div class="flex gap-1 flex-wrap">
-              <span class="proc-pill" style="background:#1e1a38;color:var(--p1);">FCFS</span>
-              <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SJF</span>
-              <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority NP</span>
+
+  <!-- Foundation 04: Process State Transition (canvas — kept from base) -->
+  <section id="state-diagram" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--p5);"></span>
+        Foundation 04
+      </div>
+      <h2 class="text-4xl font-extrabold mb-3">Process State Transition</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        A process moves through well-defined states.
+        The scheduler controls the most critical transition: Ready to Running.
+      </p>
+
+      <!-- Canvas state diagram -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">State Transition Diagram: click any state</span>
+          <button class="btn btn-ghost text-xs" onclick="resetStateViz()">Reset</button>
+        </div>
+        <div class="viz-body" style="padding:0;overflow-x:auto;">
+          <canvas id="state-canvas" style="width:100%;display:block;cursor:pointer;"></canvas>
+        </div>
+      </div>
+
+      <!-- Detail card shown when a state is selected -->
+      <div id="state-detail" class="hidden theory-card mb-6">
+        <div id="state-detail-title" class="text-xs font-bold tracking-widest mb-2"></div>
+        <p id="state-detail-text" class="text-sm text-gray-300"></p>
+      </div>
+
+      <!-- Clickable state mini-cards -->
+      <div class="grid md:grid-cols-5 gap-3">
+        <div class="theory-card accent-purple text-center" style="padding:16px;cursor:pointer;"
+          onclick="highlightStateFromCard('new')">
+          <div class="text-2xl mb-1">🆕</div>
+          <div class="text-xs font-bold" style="color:var(--accent);">NEW</div>
+          <div class="text-xs text-gray-400 mt-1">Process just created</div>
+        </div>
+        <div class="theory-card accent-green text-center" style="padding:16px;cursor:pointer;"
+          onclick="highlightStateFromCard('ready')">
+          <div class="text-2xl mb-1">⏳</div>
+          <div class="text-xs font-bold" style="color:var(--accent3);">READY</div>
+          <div class="text-xs text-gray-400 mt-1">Waiting in queue for CPU</div>
+        </div>
+        <div class="theory-card accent-red text-center" style="padding:16px;cursor:pointer;border-color:var(--accent2);"
+          onclick="highlightStateFromCard('running')">
+          <div class="text-2xl mb-1">⚡</div>
+          <div class="text-xs font-bold" style="color:var(--accent2);">RUNNING</div>
+          <div class="text-xs"
+            style="color:var(--accent2);font-size:9px;font-weight:700;letter-spacing:1px;margin-top:2px;">← SCHEDULER
+            DECIDES</div>
+        </div>
+        <div class="theory-card accent-orange text-center" style="padding:16px;cursor:pointer;"
+          onclick="highlightStateFromCard('waiting')">
+          <div class="text-2xl mb-1">💤</div>
+          <div class="text-xs font-bold" style="color:var(--accent4);">WAITING</div>
+          <div class="text-xs text-gray-400 mt-1">Blocked on I/O or event</div>
+        </div>
+        <div class="theory-card text-center" style="padding:16px;cursor:pointer;"
+          onclick="highlightStateFromCard('terminated')">
+          <div class="text-2xl mb-1">✅</div>
+          <div class="text-xs font-bold" style="color:var(--muted);">TERMINATED</div>
+          <div class="text-xs text-gray-400 mt-1">Execution complete</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════
+     PHASE TRANSITION: Foundations → Scheduling
+═══════════════════════════════════════════ -->
+  <div id="transition-foundations" class="phase-transition"
+    style="background:linear-gradient(to bottom, var(--bg), #0b0b14);">
+    <div class="phase-transition-inner">
+      <div class="phase-transition-badge">
+        <div class="line"></div>
+        <span>Phase 1 Complete</span>
+        <div class="line"></div>
+      </div>
+      <p>
+        <strong>Now we understand how processes execute.</strong><br />
+        You've seen the CPU hardware, how programs become processes,<br />
+        how CPU and I/O bursts alternate, and the states they move through.
+      </p>
+      <p style="margin-top:16px;">
+        Next: <strong>how the OS decides which process runs.</strong>
+      </p>
+      <a class="next-btn" onclick="document.getElementById('what-sched').scrollIntoView({behavior:'smooth'})">
+        Continue to Scheduling Concepts <span style="font-size:18px;">→</span>
+      </a>
+    </div>
+  </div>
+
+
+  <!-- ═══════════════════════════════════════════
+     PHASE 2: SCHEDULING CONCEPTS
+═══════════════════════════════════════════ -->
+
+  <!-- Scheduling 01: What is CPU Scheduling? (v4 expanded) -->
+  <section id="what-sched" class="section" style="padding-top:100px;">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent4);"></span>
+        Phase 2 · Scheduling Concepts
+      </div>
+      <h2 class="text-4xl font-extrabold mb-3">What is CPU Scheduling?</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        Now that you understand CPUs, processes, and their states — here is the core problem the OS solves.
+      </p>
+
+      <!-- Ready Queue → Scheduler → CPU → Done animation -->
+      <div class="viz-box mb-8">
+        <div class="viz-header">
+          <span class="viz-title">The Scheduling Problem: Animated</span>
+          <button class="btn btn-ghost text-xs" onclick="runQueueAnim()">Re-run ↺</button>
+        </div>
+        <div class="viz-body">
+          <div class="flex items-start gap-6 flex-wrap justify-center">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE</div>
+              <div id="queue-viz" class="flex flex-col gap-2" style="min-height:160px;min-width:140px;"></div>
+            </div>
+            <div class="flex flex-col items-center justify-center gap-2 pt-8">
+              <div class="text-xs font-bold tracking-widest" style="color:var(--accent);">SCHEDULER</div>
+              <div style="font-size:28px;color:var(--accent);">⟶</div>
+              <div class="text-xs" style="color:var(--muted);">picks next</div>
+            </div>
+            <div class="flex flex-col items-center gap-2">
+              <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--muted);">CPU</div>
+              <div id="cpu-viz" class="w-28 h-28 rounded-2xl border-2 flex flex-col items-center justify-center gap-1"
+                style="border-color:var(--accent);background:#1a1a2e;box-shadow:0 0 30px rgba(124,106,255,0.2);">
+                <div class="text-xs" style="color:var(--muted);">EXECUTING</div>
+                <div id="cpu-proc" class="text-2xl font-extrabold" style="color:var(--accent);">—</div>
+              </div>
+            </div>
+            <div class="flex flex-col items-center gap-2 pt-8">
+              <div style="font-size:28px;color:var(--accent3);">⟶</div>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">DONE</div>
+              <div id="done-viz" class="flex flex-col gap-2" style="min-height:160px;"></div>
             </div>
           </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">PREEMPTIVE</div>
-            <p class="text-sm text-gray-300 mb-3">The OS can <strong>forcibly remove</strong> a process from the CPU at any time — when a higher-priority process arrives, or when a time quantum expires.</p>
-            <div class="flex gap-1 flex-wrap">
-              <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SRTF</span>
-              <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority P</span>
-              <span class="proc-pill" style="background:#1f1a10;color:var(--p4);">Round Robin</span>
+        </div>
+      </div>
+
+      <!-- Definition (v4 places this here, after the animation) -->
+      <div class="text-center py-10 px-4 mb-8">
+        <p class="text-2xl md:text-3xl font-extrabold leading-snug max-w-3xl mx-auto"
+          style="color:var(--text);font-family:'Platypi',serif;font-weight:800;">
+          <span style="color:var(--accent);">CPU Scheduling</span> is the OS policy that decides<br />
+          <span style="color:var(--accent3);">which process in the Ready Queue gets the CPU next</span> — and for how
+          long.
+        </p>
+        <p class="text-sm mt-4 max-w-xl mx-auto" style="color:var(--muted);">This single decision, made thousands of
+          times per second, determines how fast your system feels, how fairly resources are shared, and whether any
+          process gets starved.</p>
+      </div>
+
+      <!-- Preemptive vs Non-Preemptive classification (from v4) -->
+      <div class="viz-box mb-8">
+        <div class="viz-header"><span class="viz-title">Classification Axis — Preemptive vs Non-Preemptive</span></div>
+        <div class="viz-body">
+          <div class="grid md:grid-cols-2 gap-6">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">NON-PREEMPTIVE</div>
+              <p class="text-sm text-gray-300 mb-3">Once a process starts running, it keeps the CPU until it
+                <strong>voluntarily</strong> gives it up — either by finishing or by requesting I/O. The scheduler
+                cannot interrupt it.</p>
+              <div class="flex gap-1 flex-wrap">
+                <span class="proc-pill" style="background:#1e1a38;color:var(--p1);">FCFS</span>
+                <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SJF</span>
+                <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority NP</span>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">PREEMPTIVE</div>
+              <p class="text-sm text-gray-300 mb-3">The OS can <strong>forcibly remove</strong> a process from the CPU
+                at any time — when a higher-priority process arrives, or when a time quantum expires.</p>
+              <div class="flex gap-1 flex-wrap">
+                <span class="proc-pill" style="background:#1f1324;color:var(--p2);">SRTF</span>
+                <span class="proc-pill" style="background:#0f1f1a;color:var(--p3);">Priority P</span>
+                <span class="proc-pill" style="background:#1f1a10;color:var(--p4);">Round Robin</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Scheduler types -->
-    <div class="grid md:grid-cols-3 gap-4 mb-6">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">LONG-TERM SCHEDULER</div>
-        <p class="text-sm text-gray-300">Admits programs into the system. Controls degree of multiprogramming. Runs rarely.</p>
+      <!-- Scheduler types (from v4) -->
+      <div class="grid md:grid-cols-3 gap-4 mb-6">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent);">LONG-TERM SCHEDULER</div>
+          <p class="text-sm text-gray-300">Admits programs into the system. Controls degree of multiprogramming. Runs
+            rarely.</p>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">SHORT-TERM SCHEDULER ★</div>
+          <p class="text-sm text-gray-300">The one we study. Runs every millisecond — picks the next process from the
+            ready queue and dispatches it to the CPU.</p>
+        </div>
+        <div class="theory-card accent-orange">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent4);">MEDIUM-TERM SCHEDULER</div>
+          <p class="text-sm text-gray-300">Swaps processes out of memory when RAM is full. Reloads them later. Manages
+            degree of multiprogramming dynamically.</p>
+        </div>
       </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">SHORT-TERM SCHEDULER ★</div>
-        <p class="text-sm text-gray-300">The one we study. Runs every millisecond — picks the next process from the ready queue and dispatches it to the CPU.</p>
-      </div>
-      <div class="theory-card accent-orange">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent4);">MEDIUM-TERM SCHEDULER</div>
-        <p class="text-sm text-gray-300">Swaps processes out of memory when RAM is full. Reloads them later. Manages degree of multiprogramming dynamically.</p>
+
+      <div class="highlight-box text-sm">
+        <strong>Criteria vs Algorithm:</strong> A <em>scheduling criterion</em> is what you optimise for (minimise
+        waiting time, maximise throughput). A <em>scheduling algorithm</em> is the mechanism that achieves a criterion.
+        SJF isn't just "an algorithm" — it's the direct response to the criterion of minimising average waiting time.
       </div>
     </div>
+  </section>
 
-    <div class="highlight-box text-sm">
-      <strong>Criteria vs Algorithm:</strong> A <em>scheduling criterion</em> is what you optimise for (minimise waiting time, maximise throughput). A <em>scheduling algorithm</em> is the mechanism that achieves a criterion. SJF isn't just "an algorithm" — it's the direct response to the criterion of minimising average waiting time.
+
+  <!-- Scheduling 02: Why is it needed? (v4 clickable goals) -->
+  <section id="why" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent2);"></span>
+        Scheduling 02
+      </div>
+      <h2 class="text-4xl font-extrabold mb-3">Why is it needed?</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        Without scheduling, computers as you know them simply wouldn't work.
+      </p>
+
+      <!-- Four scenario tabs -->
+      <div class="viz-box mb-8">
+        <div class="viz-header">
+          <span class="viz-title">The "What If No Scheduling?" Scenarios</span>
+        </div>
+        <div class="viz-body">
+          <div class="flex gap-2 flex-wrap mb-6" id="scenario-tabs">
+            <button class="btn btn-primary text-xs" onclick="showScenario(0,this)">No Scheduling</button>
+            <button class="btn btn-ghost text-xs" onclick="showScenario(1,this)">One Process Hogs CPU</button>
+            <button class="btn btn-ghost text-xs" onclick="showScenario(2,this)">I/O Bound Process</button>
+            <button class="btn btn-ghost text-xs" onclick="showScenario(3,this)">With Scheduling</button>
+          </div>
+          <div id="scenario-viz" style="min-height:120px;"></div>
+        </div>
+      </div>
+
+      <!-- Interactive clickable goals (from v4) -->
+      <div class="grid md:grid-cols-2 gap-4 mb-6">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">SCHEDULING GOALS</div>
+          <div class="space-y-2">
+            <div id="goal-util"
+              class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+              onclick="showGoal('util')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent3);flex-shrink:0;"></div>
+              <div><strong style="color:var(--accent3);">↑ CPU Utilization</strong> <span
+                  class="text-xs text-gray-400">— keep CPU busy</span></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+              onclick="showGoal('tput')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent4);flex-shrink:0;"></div>
+              <div><strong style="color:var(--accent4);">↑ Throughput</strong> <span class="text-xs text-gray-400">—
+                  more jobs per second</span></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+              onclick="showGoal('tat')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent2);flex-shrink:0;"></div>
+              <div><strong style="color:var(--accent2);">↓ Turnaround Time</strong> <span
+                  class="text-xs text-gray-400">— total time per job</span></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+              onclick="showGoal('wt')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
+              <div><strong style="color:var(--accent);">↓ Waiting Time</strong> <span class="text-xs text-gray-400">—
+                  time in ready queue</span></div>
+            </div>
+            <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5"
+              onclick="showGoal('rt')">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--p5);flex-shrink:0;"></div>
+              <div><strong style="color:var(--p5);">↓ Response Time</strong> <span class="text-xs text-gray-400">— first
+                  CPU access</span></div>
+            </div>
+            <div class="highlight-box mt-4 text-xs">
+              Good scheduling keeps the CPU busy while processes wait for I/O.
+              This is exactly the concept the burst sections build on.
+            </div>
+          </div>
+        </div>
+        <div id="goal-detail-box" class="theory-card accent-red" style="min-height:180px;">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">THE CATCH</div>
+          <p class="text-sm text-gray-300">No single algorithm nails all goals at once.
+            Each algorithm prioritises a different criterion. Click any goal on the left to understand it and see which
+            algorithm targets it.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Scheduling 03: Key Metrics (v4's 3-process example + throughput) -->
+  <section id="metrics" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent3);"></span>
+        Scheduling 03
+      </div>
+      <h2 class="text-4xl font-extrabold mb-4">Key Metrics</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">
+        Every algorithm is judged by these numbers. Know them cold.
+      </p>
+
+      <div class="grid md:grid-cols-3 gap-4 mb-8">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent);">ARRIVAL TIME (AT)</div>
+          <p class="text-xs text-gray-400">When the process first enters the ready queue.</p>
+        </div>
+        <div class="theory-card accent-orange">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent4);">BURST TIME (BT)</div>
+          <p class="text-xs text-gray-400">Total CPU time the process needs to finish.</p>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent3);">COMPLETION TIME (CT)</div>
+          <p class="text-xs text-gray-400">The moment the process finishes execution.</p>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent2);">TURNAROUND TIME (TAT)</div>
+          <div class="formula text-xs mb-2">TAT = CT − AT</div>
+          <p class="text-xs text-gray-400">Total time spent in the system, from arrival to finish.</p>
+        </div>
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent);">WAITING TIME (WT)</div>
+          <div class="formula text-xs mb-2">WT = TAT − BT</div>
+          <p class="text-xs text-gray-400">Time spent waiting in the ready queue, not executing.</p>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent3);">RESPONSE TIME (RT)</div>
+          <div class="formula text-xs mb-2">RT = First CPU start − AT</div>
+          <p class="text-xs text-gray-400">Time until the process gets the CPU for the <em>first</em> time.</p>
+        </div>
+      </div>
+
+      <!-- v4's 3-process worked example with non-zero waiting times and throughput -->
+      <div class="viz-box">
+        <div class="viz-header"><span class="viz-title">Worked Example — 3 Processes (FCFS), WT is non-zero</span></div>
+        <div class="viz-body">
+          <p class="text-sm text-gray-400 mb-5">
+            Three processes arrive close together. Because P1 runs first, P2 and P3 are forced to wait — their waiting
+            time is non-zero, caused by the process ahead of them.
+          </p>
+
+          <div class="mb-2 text-xs font-bold tracking-widest" style="color:var(--muted);">GANTT CHART (FCFS)</div>
+          <div style="display:flex;height:44px;border-radius:8px;overflow:hidden;margin-bottom:6px;">
+            <div
+              style="width:26%;background:#2a205088;border:1px solid #7c6aff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#a99aff;font-family:JetBrains Mono;">
+              P1</div>
+            <div
+              style="width:17%;background:#2a152088;border:1px solid #ff6a6a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#ff9a9a;font-family:JetBrains Mono;">
+              P2</div>
+            <div
+              style="width:30%;background:#10282088;border:1px solid #6affb8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#8affcc;font-family:JetBrains Mono;">
+              P3</div>
+            <div style="flex:1;background:#111;border:1px solid #222;"></div>
+          </div>
+          <div
+            style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:JetBrains Mono;margin-bottom:20px;padding:0 2px;">
+            <span>t=0</span><span style="margin-left:24%">t=5 (P2 starts)</span><span style="margin-left:14%">t=8 (P3
+              starts)</span><span>t=14 (done)</span>
+          </div>
+
+          <table class="data-table mb-5">
+            <thead>
+              <tr>
+                <th>Process</th>
+                <th>AT</th>
+                <th>BT</th>
+                <th>CT</th>
+                <th style="color:var(--accent2)">TAT = CT−AT</th>
+                <th style="color:var(--accent)">WT = TAT−BT</th>
+                <th style="color:var(--accent3)">RT = start−AT</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="proc-pill" style="background:#2a2050;color:#a99aff;">P1</span></td>
+                <td>0</td>
+                <td>5</td>
+                <td>5</td>
+                <td style="color:var(--accent2)">5−0 = <strong>5</strong></td>
+                <td style="color:var(--accent)">5−5 = <strong>0</strong></td>
+                <td style="color:var(--accent3)">0−0 = <strong>0</strong></td>
+              </tr>
+              <tr>
+                <td><span class="proc-pill" style="background:#2a1520;color:#ff9a9a;">P2</span></td>
+                <td>0</td>
+                <td>3</td>
+                <td>8</td>
+                <td style="color:var(--accent2)">8−0 = <strong>8</strong></td>
+                <td style="color:var(--accent)">8−3 = <strong style="color:#ff6a6a;">5 ← waited!</strong></td>
+                <td style="color:var(--accent3)">5−0 = <strong>5</strong></td>
+              </tr>
+              <tr>
+                <td><span class="proc-pill" style="background:#102820;color:#8affcc;">P3</span></td>
+                <td>0</td>
+                <td>6</td>
+                <td>14</td>
+                <td style="color:var(--accent2)">14−0 = <strong>14</strong></td>
+                <td style="color:var(--accent)">14−6 = <strong style="color:#ff6a6a;">8 ← waited!</strong></td>
+                <td style="color:var(--accent3)">8−0 = <strong>8</strong></td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="flex gap-4 flex-wrap">
+            <div class="metric-pill">
+              <div class="val" style="color:var(--accent);">4.33</div>
+              <div class="lbl">Avg WT</div>
+            </div>
+            <div class="metric-pill">
+              <div class="val" style="color:var(--accent2);">9.0</div>
+              <div class="lbl">Avg TAT</div>
+            </div>
+            <div class="metric-pill">
+              <div class="val" style="color:var(--accent3);">0.21</div>
+              <div class="lbl">Throughput (proc/unit)</div>
+            </div>
+          </div>
+          <p class="text-xs mt-3" style="color:var(--muted);">
+            P2 and P3 arrived at t=0 but had to wait because P1 got the CPU first. WT is caused by <em>other
+              processes</em> being ahead. Throughput = 3 ÷ 14 = 0.21 proc/unit.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- ═══════════════════════════════════════════
+     PHASE TRANSITION: Scheduling → Algorithms
+═══════════════════════════════════════════ -->
+  <div id="transition-scheduling" class="phase-transition"
+    style="background:linear-gradient(to bottom, var(--bg), #0b0f0b);">
+    <div class="phase-transition-inner">
+      <div class="phase-transition-badge">
+        <div class="line"></div>
+        <span>Phase 2 Complete</span>
+        <div class="line"></div>
+      </div>
+      <p>
+        <strong>Now that we know how scheduling works</strong> and what<br />
+        metrics we use to measure it,
+      </p>
+      <p style="margin-top:16px;">
+        let's explore the <strong>algorithms used by real operating systems.</strong>
+      </p>
+      <a class="next-btn" onclick="document.getElementById('algo-question').scrollIntoView({behavior:'smooth'})">
+        Continue to Algorithms <span style="font-size:18px;">→</span>
+      </a>
     </div>
   </div>
-</section>
 
-<!-- ═══ FOUNDATION 06 — Why needed ═══ -->
-<section id="why" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent2);"></span>Foundation 06</div>
-    <h2 class="text-4xl font-extrabold mb-3">Why is it needed?</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">Without scheduling, computers as you know them wouldn't work.</p>
-    <div class="viz-box mb-8">
-      <div class="viz-header"><span class="viz-title">What If There Was No Scheduling?</span></div>
-      <div class="viz-body">
-        <div class="flex gap-2 flex-wrap mb-6" id="scenario-tabs">
-          <button class="btn btn-primary text-xs" onclick="showScenario(0,this)">No Scheduling</button>
-          <button class="btn btn-ghost text-xs" onclick="showScenario(1,this)">One Process Hogs CPU</button>
-          <button class="btn btn-ghost text-xs" onclick="showScenario(2,this)">I/O Bound Process</button>
-          <button class="btn btn-ghost text-xs" onclick="showScenario(3,this)">With Scheduling</button>
+
+  <!-- ═══════════════════════════════════════════
+     PHASE 3: ALGORITHMS
+═══════════════════════════════════════════ -->
+
+  <!-- Question card (from base) -->
+  <section id="algo-question" class="section" style="padding-top:80px;padding-bottom:0;border-top:none;">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="question-card">
+        <div class="text-xs font-bold tracking-widest mb-4" style="color:var(--accent4);letter-spacing:2px;">THINK ABOUT
+          IT FIRST</div>
+        <h3 class="text-2xl md:text-3xl font-extrabold mb-2">Suppose four processes arrive:</h3>
+        <p class="text-sm mb-6" style="color:var(--muted);">Which one should the OS run first?</p>
+        <div class="question-card-processes">
+          <div class="qcard-proc">
+            <div class="text-xs font-bold mb-2" style="color:var(--p1);">P1</div>
+            <div class="mono text-xs" style="color:var(--muted);">AT = 0</div>
+            <div class="mono text-xs" style="color:var(--muted);">BT = 5</div>
+          </div>
+          <div class="qcard-proc">
+            <div class="text-xs font-bold mb-2" style="color:var(--p2);">P2</div>
+            <div class="mono text-xs" style="color:var(--muted);">AT = 1</div>
+            <div class="mono text-xs" style="color:var(--muted);">BT = 3</div>
+          </div>
+          <div class="qcard-proc">
+            <div class="text-xs font-bold mb-2" style="color:var(--p3);">P3</div>
+            <div class="mono text-xs" style="color:var(--muted);">AT = 2</div>
+            <div class="mono text-xs" style="color:var(--muted);">BT = 8</div>
+          </div>
+          <div class="qcard-proc">
+            <div class="text-xs font-bold mb-2" style="color:var(--p4);">P4</div>
+            <div class="mono text-xs" style="color:var(--muted);">AT = 4</div>
+            <div class="mono text-xs" style="color:var(--muted);">BT = 2</div>
+          </div>
         </div>
-        <div id="scenario-viz" style="min-height:120px;"></div>
+        <div class="highlight-box text-sm" style="border-left-color:var(--accent4);text-align:left;">
+          <strong style="color:var(--accent4);">Different scheduling algorithms answer this differently.</strong>
+          <span style="color:var(--muted);">
+            FCFS picks P1. SJF eventually picks P4. Priority picks whoever has the highest priority.
+            Round Robin gives everyone a turn. Each choice leads to completely different wait times and responsiveness.
+          </span>
+        </div>
       </div>
     </div>
-    <!-- Goals interactive cards -->
-    <div class="grid md:grid-cols-2 gap-4 mb-6">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">SCHEDULING GOALS</div>
-        <div class="space-y-2">
-          <div id="goal-util" class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5" onclick="showGoal('util')">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent3);flex-shrink:0;"></div>
-            <div><strong style="color:var(--accent3);">↑ CPU Utilization</strong> <span class="text-xs text-gray-400">— keep CPU busy</span></div>
-          </div>
-          <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5" onclick="showGoal('tput')">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent4);flex-shrink:0;"></div>
-            <div><strong style="color:var(--accent4);">↑ Throughput</strong> <span class="text-xs text-gray-400">— more jobs per second</span></div>
-          </div>
-          <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5" onclick="showGoal('tat')">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent2);flex-shrink:0;"></div>
-            <div><strong style="color:var(--accent2);">↓ Turnaround Time</strong> <span class="text-xs text-gray-400">— total time per job</span></div>
-          </div>
-          <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5" onclick="showGoal('wt')">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0;"></div>
-            <div><strong style="color:var(--accent);">↓ Waiting Time</strong> <span class="text-xs text-gray-400">— time in ready queue</span></div>
-          </div>
-          <div class="flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all hover:bg-white/5" onclick="showGoal('rt')">
-            <div style="width:8px;height:8px;border-radius:50%;background:var(--p5);flex-shrink:0;"></div>
-            <div><strong style="color:var(--p5);">↓ Response Time</strong> <span class="text-xs text-gray-400">— first CPU access</span></div>
+  </section>
+
+
+  <!-- Algorithm 01: FCFS -->
+  <section id="fcfs" class="section" style="padding-top:80px;">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--p1);"></span>
+        Phase 3 · Algorithm 01
+      </div>
+      <h2 class="text-4xl font-extrabold mb-2">First Come, First Served</h2>
+      <div class="mono text-sm mb-4" style="color:var(--p1);">FCFS — Non-Preemptive · Criterion: Arrival Order</div>
+      <p class="text-gray-400 text-sm mb-8 max-w-xl">
+        Whoever arrives first, runs first. No interruptions.
+        Processes are executed in the order they enter the ready queue. Pure FIFO.
+      </p>
+
+      <!-- FCFS simulator with live ready queue (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">FCFS Step-Through — with Live Ready Queue</span>
+          <div class="flex gap-2">
+            <button class="btn btn-ghost text-xs" onclick="fcfsReset()">Reset</button>
+            <button class="btn btn-primary text-xs" onclick="fcfsStep()">Step →</button>
+            <button class="btn btn-ghost text-xs" onclick="fcfsAuto()">Auto ▶</button>
           </div>
         </div>
-      </div>
-      <div id="goal-detail-box" class="theory-card accent-red" style="min-height:180px;">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">THE CATCH</div>
-        <p class="text-sm text-gray-300">No single algorithm nails all goals at once. Each algorithm prioritises a different criterion. Click any goal on the left to understand it and see which algorithm targets it.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ METRICS ═══ -->
-<section id="metrics" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent3);"></span>Stage 02</div>
-    <h2 class="text-4xl font-extrabold mb-4">Key Metrics</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-2xl" style="font-weight:400;">Every algorithm is judged by these numbers. Know them cold.</p>
-    <div class="grid md:grid-cols-3 gap-4 mb-8">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent);">ARRIVAL TIME (AT)</div>
-        <div class="formula text-xs mb-2">—</div>
-        <p class="text-xs text-gray-400">When the process enters the ready queue.</p>
-      </div>
-      <div class="theory-card accent-orange">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent4);">BURST TIME (BT)</div>
-        <div class="formula text-xs mb-2">—</div>
-        <p class="text-xs text-gray-400">Total CPU time the process needs to finish.</p>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent3);">COMPLETION TIME (CT)</div>
-        <div class="formula text-xs mb-2">—</div>
-        <p class="text-xs text-gray-400">When the process finishes execution.</p>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent2);">TURNAROUND TIME (TAT)</div>
-        <div class="formula text-xs mb-2">TAT = CT − AT</div>
-        <p class="text-xs text-gray-400">Total time in system — arrival to finish.</p>
-      </div>
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent);">WAITING TIME (WT)</div>
-        <div class="formula text-xs mb-2">WT = TAT − BT</div>
-        <p class="text-xs text-gray-400">Time spent in the ready queue — not executing.</p>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-1" style="color:var(--accent3);">RESPONSE TIME (RT)</div>
-        <div class="formula text-xs mb-2">RT = First CPU start − AT</div>
-        <p class="text-xs text-gray-400">Time until the process first gets the CPU.</p>
-      </div>
-    </div>
-
-    <!-- Worked Example -->
-    <div class="viz-box">
-      <div class="viz-header"><span class="viz-title">Worked Example — 3 Processes (FCFS), WT is non-zero</span></div>
-      <div class="viz-body">
-        <p class="text-sm text-gray-400 mb-5">Three processes arrive close together. Because P1 runs first, P2 and P3 are forced to wait — their waiting time is non-zero, caused by the process ahead of them.</p>
-
-        <div class="mb-2 text-xs font-bold tracking-widest" style="color:var(--muted);">GANTT CHART (FCFS)</div>
-        <div style="display:flex;height:44px;border-radius:8px;overflow:hidden;margin-bottom:6px;">
-          <div style="width:26%;background:#2a205088;border:1px solid #7c6aff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#a99aff;font-family:JetBrains Mono;">P1</div>
-          <div style="width:17%;background:#2a152088;border:1px solid #ff6a6a;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#ff9a9a;font-family:JetBrains Mono;">P2</div>
-          <div style="width:30%;background:#10282088;border:1px solid #6affb8;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#8affcc;font-family:JetBrains Mono;">P3</div>
-          <div style="flex:1;background:#111;border:1px solid #222;"></div>
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--muted);font-family:JetBrains Mono;margin-bottom:20px;padding:0 2px;">
-          <span>t=0</span><span style="margin-left:24%">t=5 (P2 starts)</span><span style="margin-left:14%">t=8 (P3 starts)</span><span>t=14 (done)</span>
-        </div>
-
-        <table class="data-table mb-5">
-          <thead><tr>
-            <th>Process</th><th>AT</th><th>BT</th><th>CT</th>
-            <th style="color:var(--accent2)">TAT = CT−AT</th>
-            <th style="color:var(--accent)">WT = TAT−BT</th>
-            <th style="color:var(--accent3)">RT = start−AT</th>
-          </tr></thead>
-          <tbody>
-            <tr>
-              <td><span class="proc-pill" style="background:#2a2050;color:#a99aff;">P1</span></td>
-              <td>0</td><td>5</td><td>5</td>
-              <td style="color:var(--accent2)">5−0 = <strong>5</strong></td>
-              <td style="color:var(--accent)">5−5 = <strong>0</strong></td>
-              <td style="color:var(--accent3)">0−0 = <strong>0</strong></td>
-            </tr>
-            <tr>
-              <td><span class="proc-pill" style="background:#2a1520;color:#ff9a9a;">P2</span></td>
-              <td>0</td><td>3</td><td>8</td>
-              <td style="color:var(--accent2)">8−0 = <strong>8</strong></td>
-              <td style="color:var(--accent)">8−3 = <strong style="color:#ff6a6a;">5 ← waited!</strong></td>
-              <td style="color:var(--accent3)">5−0 = <strong>5</strong></td>
-            </tr>
-            <tr>
-              <td><span class="proc-pill" style="background:#102820;color:#8affcc;">P3</span></td>
-              <td>0</td><td>6</td><td>14</td>
-              <td style="color:var(--accent2)">14−0 = <strong>14</strong></td>
-              <td style="color:var(--accent)">14−6 = <strong style="color:#ff6a6a;">8 ← waited!</strong></td>
-              <td style="color:var(--accent3)">8−0 = <strong>8</strong></td>
-            </tr>
-          </tbody>
-        </table>
-
-        <div class="flex gap-4 flex-wrap">
-          <div class="metric-pill"><div class="val" style="color:var(--accent);">4.33</div><div class="lbl">Avg WT</div></div>
-          <div class="metric-pill"><div class="val" style="color:var(--accent2);">9.0</div><div class="lbl">Avg TAT</div></div>
-          <div class="metric-pill"><div class="val" style="color:var(--accent3);">0.21</div><div class="lbl">Throughput (proc/unit)</div></div>
-        </div>
-        <p class="text-xs mt-3" style="color:var(--muted);">P2 and P3 arrived at t=0 but had to wait because P1 got the CPU first. WT is caused by <em>other processes</em> being ahead. This is exactly what different scheduling algorithms try to reduce. Throughput = 3 processes ÷ 14 time units = 0.21 proc/unit.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ FCFS ═══ -->
-<section id="fcfs" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--p1);"></span>Algorithm 01</div>
-    <h2 class="text-4xl font-extrabold mb-2">First Come, First Served</h2>
-    <div class="mono text-sm mb-4" style="color:var(--p1);">FCFS — Non-Preemptive · Criterion: Arrival Order</div>
-    <p class="text-gray-400 text-sm mb-6 max-w-xl">Whoever arrives first, runs first — pure FIFO. No interruptions. The simplest possible policy.</p>
-
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">FCFS Step-Through — with Live Ready Queue</span>
-        <div class="flex gap-2">
-          <button class="btn btn-ghost text-xs" onclick="fcfsReset()">Reset</button>
-          <button class="btn btn-primary text-xs" onclick="fcfsStep()">Step →</button>
-          <button class="btn btn-ghost text-xs" onclick="fcfsAuto()">Auto ▶</button>
-        </div>
-      </div>
-      <div class="viz-body">
-        <div class="grid md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
-            <table class="data-table">
-              <thead><tr><th>Proc</th><th>AT</th><th>BT</th></tr></thead>
-              <tbody id="fcfs-input-table"></tbody>
+        <div class="viz-body">
+          <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Proc</th>
+                    <th>AT</th>
+                    <th>BT</th>
+                  </tr>
+                </thead>
+                <tbody id="fcfs-input-table"></tbody>
+              </table>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE (at this
+                moment)</div>
+              <div id="fcfs-rq" class="flex flex-col gap-2" style="min-height:64px;">
+                <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Step to begin</div>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
+              <div id="fcfs-cpu-now"
+                class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono"
+                style="border-color:var(--border);color:var(--muted);">—</div>
+            </div>
+          </div>
+          <div class="mb-6">
+            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
+            <div id="fcfs-gantt" class="flex items-center gap-0 flex-wrap mb-6" style="min-height:54px;"></div>
+            <div id="fcfs-timeline" class="flex gap-0 flex-wrap"
+              style="padding-left:2px;position:relative;height:16px;"></div>
+          </div>
+          <div id="fcfs-results" class="hidden">
+            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">RESULTS</div>
+            <table class="data-table mb-4">
+              <thead>
+                <tr>
+                  <th>Proc</th>
+                  <th>AT</th>
+                  <th>BT</th>
+                  <th>CT</th>
+                  <th>TAT</th>
+                  <th>WT</th>
+                </tr>
+              </thead>
+              <tbody id="fcfs-result-table"></tbody>
             </table>
-          </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE (at this moment)</div>
-            <div id="fcfs-rq" class="flex flex-col gap-2 min-h-16">
-              <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Step to begin</div>
+            <div class="flex gap-4 flex-wrap mt-4">
+              <div class="metric-pill">
+                <div class="val" id="fcfs-awt" style="color:var(--accent);">—</div>
+                <div class="lbl">Avg Wait</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="fcfs-atat" style="color:var(--accent3);">—</div>
+                <div class="lbl">Avg TAT</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="fcfs-tput" style="color:var(--accent4);">—</div>
+                <div class="lbl">Throughput</div>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
-            <div id="fcfs-cpu-now" class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono" style="border-color:var(--border);color:var(--muted);">—</div>
+          <div id="fcfs-log" class="highlight-box text-sm mt-4">
+            Press <strong>Step</strong> to walk through the algorithm one process at a time. Watch the Ready Queue
+            update.
           </div>
         </div>
-        <div class="mb-6">
+      </div>
+
+      <!-- Convoy Effect interactive demo (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header"><span class="viz-title">⚠ Convoy Effect — Interactive Demo</span></div>
+        <div class="viz-body">
+          <p class="text-sm text-gray-400 mb-4">Drag the slider to change P1's burst time. See how one long process
+            blocks everything behind it.</p>
+          <div class="flex items-center gap-4 mb-6 flex-wrap">
+            <label class="text-xs font-bold tracking-widest" style="color:var(--muted);">P1 BURST:</label>
+            <input type="range" id="convoy-slider" min="1" max="20" value="12" class="w-40"
+              oninput="document.getElementById('convoy-bt-val').textContent=this.value; updateConvoy()" />
+            <span id="convoy-bt-val" class="mono text-sm font-bold" style="color:var(--accent2);">12</span>
+          </div>
+          <div id="convoy-viz" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Simplest algorithm to implement: just a FIFO queue.</li>
+            <li>→ No starvation: every process eventually gets the CPU.</li>
+            <li>→ Low overhead: no complex decision-making required.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ <strong>Convoy Effect:</strong> one long process blocks all short ones behind it.</li>
+            <li>→ Poor average waiting time, especially with mixed burst lengths.</li>
+            <li>→ Not suitable for interactive or time-sensitive systems.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Simple batch processing systems where order matters.</li>
+            <li>→ Print spoolers and job queues where fairness = arrival order.</li>
+            <li>→ Situations where all jobs have similar burst times.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Algorithm 02: SJF / SRTF -->
+  <section id="sjf" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--p2);"></span>
+        Algorithm 02
+      </div>
+      <h2 class="text-4xl font-extrabold mb-2">Shortest Job First / SRTF</h2>
+      <div class="mono text-sm mb-4" style="color:var(--p2);">SJF (Non-Preemptive) · SRTF (Preemptive) · Criterion:
+        Minimum Burst Time</div>
+
+      <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">SJF / NON-PREEMPTIVE</div>
+          <p class="text-sm text-gray-300 mb-2">
+            When CPU is free, pick the process with the <strong>smallest burst time</strong>.
+            Once started, runs to completion.
+          </p>
+          <div class="formula text-xs">Select min(BT) from ready queue at each dispatch</div>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">SRTF / PREEMPTIVE</div>
+          <p class="text-sm text-gray-300 mb-2">
+            If a new arrival has a <strong>smaller remaining burst time</strong> than the current process, preempt it
+            immediately.
+            The <strong>moment of preemption</strong> is highlighted in the log below.
+          </p>
+          <div class="formula text-xs">Preempt if new_arrival.BT &lt; current.remaining_BT</div>
+        </div>
+      </div>
+
+      <!-- SJF simulator with live ready queue + preemption highlight (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">SJF / SRTF — Step-Through with Ready Queue</span>
+          <div class="flex gap-2 items-center">
+            <label class="flex items-center gap-2 text-xs cursor-pointer">
+              <input type="checkbox" id="srtf-toggle" onchange="sjfReset()" />
+              <span style="color:var(--accent2);">SRTF (Preemptive)</span>
+            </label>
+            <button class="btn btn-ghost text-xs" onclick="sjfReset()">Reset</button>
+            <button class="btn btn-danger text-xs" onclick="sjfAuto()">Auto ▶</button>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Proc</th>
+                    <th>AT</th>
+                    <th>BT</th>
+                  </tr>
+                </thead>
+                <tbody id="sjf-input-table"></tbody>
+              </table>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE</div>
+              <div id="sjf-rq" class="flex flex-col gap-2" style="min-height:64px;">
+                <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Auto to begin</div>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
+              <div id="sjf-cpu-now"
+                class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono"
+                style="border-color:var(--border);color:var(--muted);">—</div>
+            </div>
+          </div>
           <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
-          <div id="fcfs-gantt" class="flex items-center gap-0 flex-wrap mb-5" style="min-height:54px;"></div>
-          <div id="fcfs-timeline" style="position:relative;height:16px;"></div>
-        </div>
-        <div id="fcfs-results" class="hidden">
-          <table class="data-table mb-4">
-            <thead><tr><th>Proc</th><th>AT</th><th>BT</th><th>CT</th><th>TAT</th><th>WT</th></tr></thead>
-            <tbody id="fcfs-result-table"></tbody>
-          </table>
-          <div class="flex gap-4 flex-wrap mt-4">
-            <div class="metric-pill"><div class="val" id="fcfs-awt" style="color:var(--accent);">—</div><div class="lbl">Avg WT</div></div>
-            <div class="metric-pill"><div class="val" id="fcfs-atat" style="color:var(--accent3);">—</div><div class="lbl">Avg TAT</div></div>
-            <div class="metric-pill"><div class="val" id="fcfs-tput" style="color:var(--accent4);">—</div><div class="lbl">Throughput</div></div>
-          </div>
-        </div>
-        <div id="fcfs-log" class="highlight-box text-sm mt-4">Press Step to walk through one process at a time. Watch the Ready Queue update.</div>
-      </div>
-    </div>
-
-    <!-- Convoy Effect interactive demo -->
-    <div class="viz-box mb-6">
-      <div class="viz-header"><span class="viz-title">⚠ Convoy Effect — Interactive Demo</span></div>
-      <div class="viz-body">
-        <p class="text-sm text-gray-400 mb-4">Drag the slider to change P1's burst time. See how one long process blocks everything behind it.</p>
-        <div class="flex items-center gap-4 mb-6 flex-wrap">
-          <label class="text-xs font-bold tracking-widest" style="color:var(--muted);">P1 BURST:</label>
-          <input type="range" id="convoy-slider" min="1" max="20" value="12" class="w-40"
-            oninput="document.getElementById('convoy-bt-val').textContent=this.value; updateConvoy()"/>
-          <span id="convoy-bt-val" class="mono text-sm font-bold" style="color:var(--accent2);">12</span>
-        </div>
-        <div id="convoy-viz" class="space-y-3"></div>
-      </div>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Simplest to implement — just a FIFO queue.</li>
-          <li>→ No starvation — every process eventually runs.</li>
-          <li>→ Low overhead — no sorting or priority checks needed.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>Convoy Effect</strong> — one long process blocks all short ones behind it.</li>
-          <li>→ Poor average waiting time with mixed burst lengths.</li>
-          <li>→ Not suitable for interactive or time-sensitive systems.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Simple batch processing systems.</li>
-          <li>→ Print spoolers and job queues with similar burst times.</li>
-          <li>→ Baseline — all other algorithms compared against FCFS performance.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ SJF/SRTF ═══ -->
-<section id="sjf" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--p2);"></span>Algorithm 02</div>
-    <h2 class="text-4xl font-extrabold mb-2">Shortest Job First / SRTF</h2>
-    <div class="mono text-sm mb-4" style="color:var(--p2);">SJF (Non-Preemptive) · SRTF (Preemptive) · Criterion: Minimum Burst Time</div>
-
-    <div class="grid md:grid-cols-2 gap-6 mb-6">
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">SJF — NON-PREEMPTIVE</div>
-        <p class="text-sm text-gray-300 mb-2">When CPU is free, pick the process with the <strong>smallest burst time</strong>. Once started, runs to completion.</p>
-        <div class="formula text-xs">select min(BT) from ready queue</div>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent2);">SRTF — PREEMPTIVE</div>
-        <p class="text-sm text-gray-300 mb-2">If a new arrival has smaller remaining time than the current process — preempt immediately. The <strong>moment of preemption</strong> is visible in the step-through below.</p>
-        <div class="formula text-xs">preempt if new.BT &lt; current.remaining</div>
-      </div>
-    </div>
-
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">SJF / SRTF — Step-Through with Ready Queue</span>
-        <div class="flex gap-2 items-center">
-          <label class="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" id="srtf-toggle" onchange="sjfReset()"/>
-            <span style="color:var(--accent2);">SRTF (Preemptive)</span>
-          </label>
-          <button class="btn btn-ghost text-xs" onclick="sjfReset()">Reset</button>
-          <button class="btn btn-danger text-xs" onclick="sjfAuto()">Auto ▶</button>
-        </div>
-      </div>
-      <div class="viz-body">
-        <div class="grid md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
-            <table class="data-table">
-              <thead><tr><th>Proc</th><th>AT</th><th>BT</th></tr></thead>
-              <tbody id="sjf-input-table"></tbody>
+          <div id="sjf-gantt" class="flex items-center gap-0 flex-wrap mb-6" style="min-height:54px;"></div>
+          <div id="sjf-timeline" class="flex gap-0 flex-wrap mb-4"
+            style="padding-left:2px;position:relative;height:16px;"></div>
+          <div id="sjf-results" class="hidden">
+            <table class="data-table mb-4">
+              <thead>
+                <tr>
+                  <th>Proc</th>
+                  <th>AT</th>
+                  <th>BT</th>
+                  <th>CT</th>
+                  <th>TAT</th>
+                  <th>WT</th>
+                </tr>
+              </thead>
+              <tbody id="sjf-result-table"></tbody>
             </table>
-          </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE</div>
-            <div id="sjf-rq" class="flex flex-col gap-2 min-h-16">
-              <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Auto to begin</div>
+            <div class="flex gap-4 flex-wrap mt-4">
+              <div class="metric-pill">
+                <div class="val" id="sjf-awt" style="color:var(--accent2);">—</div>
+                <div class="lbl">Avg Wait</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="sjf-atat" style="color:var(--accent3);">—</div>
+                <div class="lbl">Avg TAT</div>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
-            <div id="sjf-cpu-now" class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono" style="border-color:var(--border);color:var(--muted);">—</div>
+          <div id="sjf-log" class="highlight-box red text-sm mt-4">
+            Toggle SRTF mode and click <strong>Auto</strong> to see how preemption changes the result. Preemption events
+            will be highlighted.
           </div>
         </div>
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
-        <div id="sjf-gantt" class="flex items-center gap-0 flex-wrap mb-5" style="min-height:54px;"></div>
-        <div id="sjf-timeline" style="position:relative;height:16px;margin-bottom:16px;"></div>
-        <div id="sjf-results" class="hidden">
-          <table class="data-table mb-4">
-            <thead><tr><th>Proc</th><th>AT</th><th>BT</th><th>CT</th><th>TAT</th><th>WT</th></tr></thead>
-            <tbody id="sjf-result-table"></tbody>
-          </table>
-          <div class="flex gap-4 flex-wrap mt-4">
-            <div class="metric-pill"><div class="val" id="sjf-awt" style="color:var(--accent2);">—</div><div class="lbl">Avg WT</div></div>
-            <div class="metric-pill"><div class="val" id="sjf-atat" style="color:var(--accent3);">—</div><div class="lbl">Avg TAT</div></div>
+      </div>
+
+      <!-- Starvation visualization (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">Starvation — When Short Jobs Keep Arriving</span>
+          <button class="btn btn-ghost text-xs" onclick="animateStarvation()">Animate ↺</button>
+        </div>
+        <div class="viz-body">
+          <p class="text-sm text-gray-400 mb-4">P_long arrived at t=0 with BT=20. Short processes keep arriving. Watch
+            P_long never get scheduled.</p>
+          <div id="starvation-viz" class="space-y-3 mb-4"></div>
+          <div id="starvation-log" class="highlight-box red text-sm" style="opacity:0;transition:opacity 0.5s;">
+            <strong style="color:var(--accent2);">Starvation:</strong> P_long has been waiting while P2, P3, P4 all ran.
+            If short jobs keep arriving, P_long may <em>never</em> run. Fix: <strong>Aging</strong> — gradually increase
+            a waiting process's priority over time.
           </div>
         </div>
-        <div id="sjf-log" class="highlight-box red text-sm mt-4">Toggle SRTF and click Auto. Watch for the preemption event — it will be highlighted in the log.</div>
       </div>
-    </div>
 
-    <!-- Starvation visualization -->
-    <div class="viz-box mb-6">
-      <div class="viz-header"><span class="viz-title">Starvation — When Short Jobs Keep Arriving</span><button class="btn btn-ghost text-xs" onclick="animateStarvation()">Animate ↺</button></div>
-      <div class="viz-body">
-        <p class="text-sm text-gray-400 mb-4">P_long arrived at t=0 with BT=20. Short processes keep arriving. Watch P_long never get scheduled.</p>
-        <div id="starvation-viz" class="space-y-3 mb-4"></div>
-        <div id="starvation-log" class="highlight-box red text-sm" style="opacity:0;transition:opacity 0.5s;">
-          <strong style="color:var(--accent2);">Starvation:</strong> P_long has been waiting while P2, P3, P4 all ran. If short jobs keep arriving, P_long may <em>never</em> run. Fix: <strong>Aging</strong> — gradually increase a waiting process's priority over time.
+      <!-- Burst Prediction (from v4) -->
+      <div class="highlight-box orange mb-6 text-sm">
+        <strong style="color:var(--accent4);">The Burst Prediction Problem:</strong> SJF/SRTF require knowing burst
+        times in advance — but in reality, you can't know how long a process will run. Operating systems
+        <em>estimate</em> burst time using <strong>exponential averaging</strong> of past behavior: <code
+          class="text-xs">τ(n+1) = α·t(n) + (1−α)·τ(n)</code> where t(n) is the actual last burst and τ(n) is the
+        estimate. This is why SJF is theoretically optimal but rarely used in pure form — real schedulers approximate
+        it.
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Gives the <strong>minimum average waiting time</strong> of all non-preemptive algorithms.</li>
+            <li>→ SRTF is optimal: no algorithm can beat it for avg WT.</li>
+            <li>→ Short processes are served quickly, improving throughput.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ <strong>Starvation:</strong> long processes may never run if short ones keep arriving.</li>
+            <li>→ Burst time must be known in advance, which is not always possible.</li>
+            <li>→ SRTF has high context switching overhead for frequent preemptions.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Batch systems where job execution times are known upfront.</li>
+            <li>→ CPU scheduling in systems that predict burst time from history.</li>
+            <li>→ SRTF used in preemptive OS environments needing optimal throughput.</li>
+          </ul>
         </div>
       </div>
     </div>
+  </section>
 
-    <!-- Burst time prediction -->
-    <div class="highlight-box orange mb-6 text-sm">
-      <strong style="color:var(--accent4);">The Burst Prediction Problem:</strong> SJF/SRTF require knowing burst times in advance — but in reality, you can't know how long a process will run. Operating systems <em>estimate</em> burst time using <strong>exponential averaging</strong> of past behavior: <code class="text-xs">τ(n+1) = α·t(n) + (1−α)·τ(n)</code> where t(n) is the actual last burst and τ(n) is the estimate. This is why SJF is theoretically optimal but rarely used in pure form — real schedulers approximate it.
-    </div>
 
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>Minimum average waiting time</strong> of all non-preemptive algorithms.</li>
-          <li>→ SRTF is the globally optimal preemptive algorithm — no other achieves lower avg WT.</li>
-          <li>→ Short processes are served quickly — great turnaround for interactive-style jobs.</li>
-        </ul>
+  <!-- Algorithm 03: Priority -->
+  <section id="priority" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--p3);"></span>
+        Algorithm 03
       </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>Starvation</strong> — long processes may never run if short jobs keep arriving.</li>
-          <li>→ Burst time must be known in advance — impossible in general-purpose systems.</li>
-          <li>→ SRTF causes high context-switching overhead due to frequent preemptions.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Batch systems with known or predictable execution times.</li>
-          <li>→ Systems that estimate burst time via exponential averaging of past bursts.</li>
-          <li>→ Theoretical benchmark — every other algorithm's avg WT is measured against SRTF.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
+      <h2 class="text-4xl font-extrabold mb-2">Priority Scheduling</h2>
+      <div class="mono text-sm mb-4" style="color:var(--p3);">Preemptive + Non-Preemptive variants · Criterion: Process
+        Importance</div>
 
-<!-- ═══ PRIORITY ═══ -->
-<section id="priority" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--p3);"></span>Algorithm 03</div>
-    <h2 class="text-4xl font-extrabold mb-2">Priority Scheduling</h2>
-    <div class="mono text-sm mb-4" style="color:var(--p3);">Preemptive + Non-Preemptive · Criterion: Process Importance</div>
-
-    <div class="grid md:grid-cols-2 gap-6 mb-6">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">THE IDEA</div>
-        <p class="text-sm text-gray-300">Each process has a <strong>priority number</strong>. CPU always picks highest priority. Convention: <strong>lower number = higher priority</strong> (P=1 beats P=4).</p>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">PREEMPTIVE VS NON-PREEMPTIVE</div>
-        <p class="text-sm text-gray-300"><strong>Non-preemptive:</strong> finishes even if higher priority arrives.<br/><br/><strong>Preemptive:</strong> higher-priority arrival immediately kicks out current process.</p>
-      </div>
-    </div>
-    <div class="highlight-box orange mb-6 text-sm">
-      <strong style="color:var(--accent4);">SJF is Priority Scheduling</strong> where priority = 1/burst_time. This unifies the two algorithms under one framework.
-    </div>
-
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">Priority Scheduler — with Ready Queue</span>
-        <div class="flex gap-2 items-center">
-          <label class="flex items-center gap-2 text-xs cursor-pointer">
-            <input type="checkbox" id="prio-preemptive" onchange="prioReset()"/>
-            <span style="color:var(--accent3);">Preemptive</span>
-          </label>
-          <button class="btn btn-ghost text-xs" onclick="prioReset()">Reset</button>
-          <button class="btn btn-success text-xs" onclick="prioAuto()">Auto ▶</button>
+      <div class="grid md:grid-cols-2 gap-6 mb-6">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">THE IDEA</div>
+          <p class="text-sm text-gray-300">
+            Each process has a <strong>priority number</strong>.
+            The CPU always picks the highest-priority process.
+            Convention: lower number = higher priority (P=1 beats P=4).
+          </p>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-2" style="color:var(--accent3);">PREEMPTIVE VS NON-PREEMPTIVE
+          </div>
+          <p class="text-sm text-gray-300">
+            <strong>Non-preemptive:</strong> once running, finishes even if higher priority arrives.<br /><br />
+            <strong>Preemptive:</strong> a higher-priority arrival immediately kicks out the current process.
+          </p>
         </div>
       </div>
-      <div class="viz-body">
-        <div class="grid md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
-            <table class="data-table">
-              <thead><tr><th>Proc</th><th>AT</th><th>BT</th><th style="color:var(--accent3)">Prio</th></tr></thead>
-              <tbody id="prio-input-table"></tbody>
+
+      <div class="highlight-box orange mb-6 text-sm">
+        <strong style="color:var(--accent4);">SJF is a special case of Priority Scheduling</strong>:
+        priority = 1/burst_time, so the shortest job gets the highest priority.
+      </div>
+
+      <!-- Priority simulator with live ready queue (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">Priority Scheduler — with Ready Queue</span>
+          <div class="flex gap-2 items-center">
+            <label class="flex items-center gap-2 text-xs cursor-pointer">
+              <input type="checkbox" id="prio-preemptive" onchange="prioReset()" />
+              <span style="color:var(--accent3);">Preemptive</span>
+            </label>
+            <button class="btn btn-ghost text-xs" onclick="prioReset()">Reset</button>
+            <button class="btn btn-success text-xs" onclick="prioAuto()">Auto ▶</button>
+          </div>
+        </div>
+        <div class="viz-body">
+          <div class="grid md:grid-cols-3 gap-4 mb-6">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">INPUT</div>
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Proc</th>
+                    <th>AT</th>
+                    <th>BT</th>
+                    <th style="color:var(--accent3)">Prio</th>
+                  </tr>
+                </thead>
+                <tbody id="prio-input-table"></tbody>
+              </table>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE (sorted by
+                priority)</div>
+              <div id="prio-rq" class="flex flex-col gap-2" style="min-height:64px;">
+                <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Auto to begin</div>
+              </div>
+            </div>
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
+              <div id="prio-cpu-now"
+                class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono"
+                style="border-color:var(--border);color:var(--muted);">—</div>
+            </div>
+          </div>
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
+          <div id="prio-gantt" class="flex items-center gap-0 flex-wrap mb-6" style="min-height:54px;"></div>
+          <div id="prio-timeline" class="flex gap-0 flex-wrap mb-4"
+            style="padding-left:2px;position:relative;height:16px;"></div>
+          <div id="prio-results" class="hidden">
+            <table class="data-table mb-4">
+              <thead>
+                <tr>
+                  <th>Proc</th>
+                  <th>AT</th>
+                  <th>BT</th>
+                  <th>Prio</th>
+                  <th>CT</th>
+                  <th>TAT</th>
+                  <th>WT</th>
+                </tr>
+              </thead>
+              <tbody id="prio-result-table"></tbody>
             </table>
-          </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">READY QUEUE (sorted by priority)</div>
-            <div id="prio-rq" class="flex flex-col gap-2 min-h-16">
-              <div style="font-size:11px;color:var(--muted);font-family:JetBrains Mono;">Press Auto to begin</div>
+            <div class="flex gap-4 flex-wrap mt-4">
+              <div class="metric-pill">
+                <div class="val" id="prio-awt" style="color:var(--accent3);">—</div>
+                <div class="lbl">Avg Wait</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="prio-atat" style="color:var(--accent3);">—</div>
+                <div class="lbl">Avg TAT</div>
+              </div>
             </div>
           </div>
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">CPU NOW</div>
-            <div id="prio-cpu-now" class="w-full h-16 rounded-xl border-2 flex items-center justify-center text-xl font-extrabold font-mono" style="border-color:var(--border);color:var(--muted);">—</div>
+          <div id="prio-log" class="highlight-box green text-sm mt-4">
+            The ready queue is sorted by priority. Lower number = higher priority = runs first.
           </div>
         </div>
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
-        <div id="prio-gantt" class="flex items-center gap-0 flex-wrap mb-5" style="min-height:54px;"></div>
-        <div id="prio-timeline" style="position:relative;height:16px;margin-bottom:16px;"></div>
-        <div id="prio-results" class="hidden">
-          <table class="data-table mb-4">
-            <thead><tr><th>Proc</th><th>AT</th><th>BT</th><th>Prio</th><th>CT</th><th>TAT</th><th>WT</th></tr></thead>
-            <tbody id="prio-result-table"></tbody>
+      </div>
+
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Critical tasks are guaranteed to run before less important ones.</li>
+            <li>→ Flexible: priority can be assigned based on any criteria.</li>
+            <li>→ Widely used in real-time and OS kernel scheduling.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ <strong>Starvation:</strong> low-priority processes may never run if high-priority ones keep arriving.
+            </li>
+            <li>→ Fix is <strong>aging</strong>: gradually raise priority of waiting processes over time.</li>
+            <li>→ Deciding the right priority values is non-trivial in practice.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Real-time systems, e.g. medical devices, aircraft control.</li>
+            <li>→ OS kernel threads needing to preempt user-space processes.</li>
+            <li>→ Network packet scheduling: high-priority traffic first.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Algorithm 04: Round Robin -->
+  <section id="rr" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--p4);"></span>
+        Algorithm 04
+      </div>
+      <h2 class="text-4xl font-extrabold mb-2">Round Robin</h2>
+      <div class="mono text-sm mb-4" style="color:var(--p4);">Preemptive · Criterion: Fairness · Time Quantum = Q</div>
+      <p class="text-gray-400 text-sm mb-8 max-w-xl">
+        Every process gets a fixed time slice (quantum Q). After Q units, it's preempted and
+        sent to the back of the queue. Designed for fairness: no process waits forever.
+      </p>
+
+      <!-- Queue rotation visualization (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">Queue Rotation — How Round Robin Works</span>
+          <button class="btn btn-ghost text-xs" onclick="animateRRRotation()">Animate ↺</button>
+        </div>
+        <div class="viz-body">
+          <div id="rr-rotation-viz" style="min-height:100px;"></div>
+          <div id="rr-rotation-log" class="highlight-box orange text-sm mt-4"
+            style="opacity:0;transition:opacity 0.4s;">After P1's quantum expires, it moves to the back of the queue. P2
+            runs next. The queue rotates continuously.</div>
+        </div>
+      </div>
+
+      <div class="highlight-box orange mb-6 text-sm">
+        <strong style="color:var(--accent4);">The Quantum Dilemma:</strong>
+        Q too large → behaves like FCFS. Q too small → too many context switches, overhead kills performance.
+        The right Q is the key engineering decision. Try both extremes below.
+      </div>
+
+      <!-- Round Robin simulator with throughput (from v4) -->
+      <div class="viz-box mb-6">
+        <div class="viz-header">
+          <span class="viz-title">Interactive Round Robin: Adjust Quantum</span>
+          <div class="flex items-center gap-4">
+            <label class="text-xs font-bold tracking-widest" style="color:var(--muted);">QUANTUM:</label>
+            <input type="range" id="rr-quantum-slider" min="1" max="8" value="2" class="w-32"
+              oninput="document.getElementById('rr-q-val').textContent=this.value; rrReset()" />
+            <span id="rr-q-val" class="mono text-sm font-bold" style="color:var(--accent4);">2</span>
+            <button class="btn btn-ghost text-xs" onclick="rrReset()">Reset</button>
+            <button class="btn btn-primary text-xs" style="background:var(--accent4);" onclick="rrAuto()">Auto
+              ▶</button>
+          </div>
+        </div>
+        <div class="viz-body">
+          <table class="data-table mb-6">
+            <thead>
+              <tr>
+                <th>Process</th>
+                <th>Arrival Time</th>
+                <th>Burst Time</th>
+              </tr>
+            </thead>
+            <tbody id="rr-input-table"></tbody>
           </table>
-          <div class="flex gap-4 flex-wrap mt-4">
-            <div class="metric-pill"><div class="val" id="prio-awt" style="color:var(--accent3);">—</div><div class="lbl">Avg WT</div></div>
-            <div class="metric-pill"><div class="val" id="prio-atat" style="color:var(--accent3);">—</div><div class="lbl">Avg TAT</div></div>
-          </div>
-        </div>
-        <div id="prio-log" class="highlight-box green text-sm mt-4">The ready queue is sorted by priority. Lower number = higher priority = runs first.</div>
-      </div>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>Critical tasks guaranteed to run first</strong> — latency-sensitive work is never stuck behind low-priority jobs.</li>
-          <li>→ Flexible — priority can be assigned based on any criterion (deadline, importance, resource class).</li>
-          <li>→ Widely used in real-time OS and kernel schedulers where task ordering is mandatory.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>Starvation</strong> — low-priority processes may never run if high-priority work keeps arriving.</li>
-          <li>→ Fix is <strong>aging</strong> — gradually increase a waiting process's priority over time.</li>
-          <li>→ Deciding the right priority values for all processes is non-trivial in real systems.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Real-time systems — medical devices, aircraft control, industrial automation.</li>
-          <li>→ OS kernel threads preempting user-space processes.</li>
-          <li>→ Network packet scheduling — high-priority traffic (VoIP, video) routed first.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ ROUND ROBIN ═══ -->
-<section id="rr" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--p4);"></span>Algorithm 04</div>
-    <h2 class="text-4xl font-extrabold mb-2">Round Robin</h2>
-    <div class="mono text-sm mb-4" style="color:var(--p4);">Preemptive · Criterion: Fairness · Time Quantum = Q</div>
-    <p class="text-gray-400 text-sm mb-6 max-w-xl">Every process gets a fixed time slice Q. After Q units it's preempted and goes to the back of the queue. Designed for fairness — no process waits forever.</p>
-
-    <!-- Queue rotation visualization -->
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">Queue Rotation — How Round Robin Works</span>
-        <button class="btn btn-ghost text-xs" onclick="animateRRRotation()">Animate ↺</button>
-      </div>
-      <div class="viz-body">
-        <div id="rr-rotation-viz" style="min-height:100px;"></div>
-        <div id="rr-rotation-log" class="highlight-box orange text-sm mt-4" style="opacity:0;transition:opacity 0.4s;">After P1's quantum expires, it moves to the back of the queue. P2 runs next. The queue rotates continuously.</div>
-      </div>
-    </div>
-
-    <div class="highlight-box orange mb-6 text-sm">
-      <strong style="color:var(--accent4);">The Quantum Dilemma:</strong> Q too large → behaves like FCFS. Q too small → context switches dominate, throughput collapses. The right Q is the key engineering decision.
-    </div>
-
-    <div class="viz-box mb-6">
-      <div class="viz-header">
-        <span class="viz-title">Round Robin — Adjust Quantum</span>
-        <div class="flex items-center gap-4">
-          <label class="text-xs font-bold tracking-widest" style="color:var(--muted);">QUANTUM:</label>
-          <input type="range" id="rr-quantum-slider" min="1" max="8" value="2" class="w-28"
-            oninput="document.getElementById('rr-q-val').textContent=this.value; rrReset()"/>
-          <span id="rr-q-val" class="mono text-sm font-bold" style="color:var(--accent4);">2</span>
-          <button class="btn btn-ghost text-xs" onclick="rrReset()">Reset</button>
-          <button class="btn btn-primary text-xs" style="background:var(--accent4);" onclick="rrAuto()">Auto ▶</button>
-        </div>
-      </div>
-      <div class="viz-body">
-        <table class="data-table mb-5">
-          <thead><tr><th>Proc</th><th>AT</th><th>BT</th></tr></thead>
-          <tbody id="rr-input-table"></tbody>
-        </table>
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
-        <div id="rr-gantt" class="flex items-center gap-0 flex-wrap mb-5" style="min-height:54px;"></div>
-        <div id="rr-timeline" style="position:relative;height:16px;margin-bottom:16px;"></div>
-        <div id="rr-results" class="hidden">
-          <table class="data-table mb-4">
-            <thead><tr><th>Proc</th><th>AT</th><th>BT</th><th>CT</th><th>TAT</th><th>WT</th></tr></thead>
-          <tbody id="rr-result-table"></tbody>
-          </table>
-          <div class="flex gap-4 flex-wrap mt-4">
-            <div class="metric-pill"><div class="val" id="rr-awt" style="color:var(--accent4);">—</div><div class="lbl">Avg WT</div></div>
-            <div class="metric-pill"><div class="val" id="rr-atat" style="color:var(--accent4);">—</div><div class="lbl">Avg TAT</div></div>
-            <div class="metric-pill"><div class="val" id="rr-cs" style="color:var(--accent2);">—</div><div class="lbl">Context Switches</div></div>
-            <div class="metric-pill"><div class="val" id="rr-tput" style="color:var(--accent3);">—</div><div class="lbl">Throughput</div></div>
-          </div>
-        </div>
-        <div id="rr-log" class="highlight-box orange text-sm mt-4">Try Q=1 vs Q=8. Watch context switches and avg wait trade against each other.</div>
-      </div>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-4">
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ <strong>No starvation</strong> — every process is guaranteed CPU time within one full rotation.</li>
-          <li>→ Best response time for interactive systems — users get feedback quickly.</li>
-          <li>→ Fair by design — all processes treated equally regardless of burst time.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-red">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Higher average waiting time than SJF for the same process set.</li>
-          <li>→ If Q is too small, context-switching overhead dominates and throughput collapses.</li>
-          <li>→ Performance is highly sensitive to the choice of quantum Q — no one-size-fits-all value.</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Time-sharing OS — the foundational model for modern multitasking.</li>
-          <li>→ Interactive desktops and terminals where responsiveness is critical.</li>
-          <li>→ Base layer of multi-level feedback queue schedulers used in Linux and Windows.</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ COMPARISON ═══ -->
-<section id="comparison" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent3);"></span>Going Further</div>
-    <h2 class="text-4xl font-extrabold mb-4">Which algorithm should you use?</h2>
-    <p class="text-gray-400 text-lg mb-8 max-w-2xl" style="font-weight:400;">There's no universal answer. It depends on what you're optimising for. Use this to figure it out.</p>
-
-    <!-- Interactive algorithm chooser -->
-    <div class="viz-box mb-8">
-      <div class="viz-header"><span class="viz-title">Algorithm Selector — Pick your priority</span></div>
-      <div class="viz-body">
-        <div class="grid md:grid-cols-2 gap-6 mb-6">
-          <div>
-            <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">WHAT MATTERS MOST TO YOU?</div>
-            <div class="space-y-2" id="chooser-options">
-              <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm" style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('wt')">↓ Minimise waiting time</button>
-              <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm" style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('rt')">↓ Best response time (interactive feel)</button>
-              <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm" style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('fair')">= Fairness — no starvation</button>
-              <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm" style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('prio')">★ Critical tasks must run first</button>
-              <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm" style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('simple')">⚙ Simplicity, minimal overhead</button>
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">GANTT CHART</div>
+          <div id="rr-gantt" class="flex items-center gap-0 flex-wrap mb-6" style="min-height:54px;"></div>
+          <div id="rr-timeline" class="flex gap-0 flex-wrap mb-4" style="position:relative;height:16px;"></div>
+          <div id="rr-results" class="hidden">
+            <table class="data-table mb-4">
+              <thead>
+                <tr>
+                  <th>Process</th>
+                  <th>AT</th>
+                  <th>BT</th>
+                  <th>CT</th>
+                  <th>TAT</th>
+                  <th>WT</th>
+                </tr>
+              </thead>
+              <tbody id="rr-result-table"></tbody>
+            </table>
+            <div class="flex gap-4 flex-wrap mt-4">
+              <div class="metric-pill">
+                <div class="val" id="rr-awt" style="color:var(--accent4);">—</div>
+                <div class="lbl">Avg Wait</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="rr-atat" style="color:var(--accent4);">—</div>
+                <div class="lbl">Avg TAT</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="rr-cs" style="color:var(--accent2);">—</div>
+                <div class="lbl">Context Switches</div>
+              </div>
+              <div class="metric-pill">
+                <div class="val" id="rr-tput" style="color:var(--accent3);">—</div>
+                <div class="lbl">Throughput</div>
+              </div>
             </div>
           </div>
-          <div id="chooser-result" class="theory-card accent-purple flex flex-col justify-center" style="min-height:200px;">
-            <div style="color:var(--muted);font-size:13px;">← Select a criterion to get a recommendation</div>
+          <div id="rr-log" class="highlight-box orange text-sm mt-4">
+            Try quantum = 1 vs quantum = 8 on the same processes. Watch context switches and avg wait change.
           </div>
         </div>
       </div>
-    </div>
 
-    <div class="grid md:grid-cols-2 gap-6">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">WHAT WE COVERED</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li><span style="color:var(--p1)">FCFS</span> — arrival order, no starvation, convoy effect</li>
-          <li><span style="color:var(--p2)">SJF / SRTF</span> — optimal avg WT, starvation risk</li>
-          <li><span style="color:var(--p3)">Priority</span> — importance-first, needs aging</li>
-          <li><span style="color:var(--p4)">Round Robin</span> — fairest, quantum-dependent</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">GO DEEPER</div>
-        <p class="text-sm text-gray-300 mb-3">Real OS schedulers (Linux CFS, Windows Priority Scheduler) combine these ideas. Search:</p>
-        <p class="text-sm" style="color:var(--accent3);">→ <span class="mono" style="color:var(--accent4);">"Linux Completely Fair Scheduler"</span></p>
-        <p class="text-sm mt-1" style="color:var(--accent3);">→ <span class="mono" style="color:var(--accent4);">"Multilevel Feedback Queue"</span></p>
-        <p class="text-sm mt-1" style="color:var(--accent3);">→ Or run the same process set through all algorithms in the simulator below.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══ SIMULATOR CTA ═══ -->
-<section id="simulator" class="section">
-  <div class="max-w-5xl mx-auto px-8">
-    <div class="stage-badge"><span class="dot" style="background:var(--accent3);"></span>Final Stage</div>
-    <h2 class="text-4xl font-extrabold mb-4">You're ready for the Simulator.</h2>
-    <p class="text-gray-400 text-lg mb-10 max-w-xl" style="font-weight:400;">You've built up from the CPU to context switches, states, metrics, and all four algorithms. Now put it together.</p>
-    <div class="grid md:grid-cols-2 gap-6 mb-12">
-      <div class="theory-card accent-purple">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">WHAT TO EXPECT</div>
-        <ul class="text-sm text-gray-300 space-y-2">
-          <li>→ Enter any processes with AT and BT</li>
-          <li>→ Select the algorithm and variant</li>
-          <li>→ Get Gantt chart, per-process metrics, averages</li>
-          <li>→ For RR: set your own quantum</li>
-          <li>→ For Priority: assign priority values</li>
-        </ul>
-      </div>
-      <div class="theory-card accent-green">
-        <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">QUICK REFERENCE</div>
-        <ul class="text-sm text-gray-300 space-y-1 mono text-xs">
-          <li><span style="color:var(--accent3)">TAT</span> = CT − AT</li>
-          <li><span style="color:var(--accent)">WT</span> = TAT − BT</li>
-          <li><span style="color:var(--p5)">RT</span> = First CPU start − AT</li>
-          <li><span style="color:var(--accent4)">Throughput</span> = Processes ÷ Total Time</li>
-          <li><span style="color:var(--p2)">SRTF</span>: preempt if new.BT &lt; curr.remaining</li>
-          <li><span style="color:var(--p4)">RR</span>: context switch every Q units</li>
-        </ul>
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">ADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ <strong>No starvation</strong>: every process is guaranteed CPU time within one cycle.</li>
+            <li>→ Best response time for interactive systems: users see quick feedback.</li>
+            <li>→ Fair by design: all processes are treated equally regardless of burst time.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-red">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent2);">DISADVANTAGES</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Higher average waiting time compared to SJF for the same process set.</li>
+            <li>→ Too many context switches if quantum is too small, causing significant overhead.</li>
+            <li>→ Performance heavily depends on choosing the right quantum value.</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">APPLICATIONS</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Time-sharing operating systems: the foundation of modern multitasking.</li>
+            <li>→ Interactive desktop environments where responsiveness matters most.</li>
+            <li>→ Used as a base in multi-level feedback queue schedulers (Linux, Windows).</li>
+          </ul>
+        </div>
       </div>
     </div>
-    <a href="simulator/simulator.html" target="_blank"
-       class="inline-flex items-center gap-4 px-10 py-5 rounded-2xl font-extrabold text-xl transition-all duration-300"
-       style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;box-shadow:0 0 40px rgba(124,106,255,0.3);"
-       onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 0 60px rgba(124,106,255,0.5)'"
-       onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 0 40px rgba(124,106,255,0.3)'"
-    ><span>Open the Simulator</span><span style="font-size:24px;">→</span></a>
-  </div>
-</section>
+  </section>
 
-<footer class="border-t py-10 text-center" style="border-color:var(--border);">
-  <p class="mono text-xs" style="color:var(--muted);">CPU Scheduling · Interactive Learning Guide · OS Semester VIII</p>
-</footer>
 
-<script src="main.js"></script>
+  <!-- Comparison + Interactive Algorithm Chooser (from v4) -->
+  <section id="comparison" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent3);"></span>
+        Going Further
+      </div>
+      <h2 class="text-4xl font-extrabold mb-4">Which algorithm should you use?</h2>
+      <p class="text-gray-400 text-lg mb-8 max-w-2xl" style="font-weight:400;">
+        There's no universal answer. It depends on what you're optimising for. Use this to figure it out.
+      </p>
+
+      <!-- Interactive algorithm chooser (from v4) -->
+      <div class="viz-box mb-8">
+        <div class="viz-header"><span class="viz-title">Algorithm Selector — Pick your priority</span></div>
+        <div class="viz-body">
+          <div class="grid md:grid-cols-2 gap-6 mb-6">
+            <div>
+              <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--muted);">WHAT MATTERS MOST TO YOU?
+              </div>
+              <div class="space-y-2" id="chooser-options">
+                <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm"
+                  style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('wt')">↓ Minimise
+                  waiting time</button>
+                <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm"
+                  style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('rt')">↓ Best
+                  response time (interactive feel)</button>
+                <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm"
+                  style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('fair')">= Fairness
+                  — no starvation</button>
+                <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm"
+                  style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('prio')">★ Critical
+                  tasks must run first</button>
+                <button class="chooser-btn w-full text-left p-3 rounded-lg border transition-all text-sm"
+                  style="border-color:var(--border);background:var(--surface2);" onclick="chooseAlgo('simple')">⚙
+                  Simplicity, minimal overhead</button>
+              </div>
+            </div>
+            <div id="chooser-result" class="theory-card accent-purple flex flex-col justify-center"
+              style="min-height:200px;">
+              <div style="color:var(--muted);font-size:13px;">← Select a criterion to get a recommendation</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-2 gap-6">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">WHAT WE COVERED</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li><span style="color:var(--p1)">FCFS</span>: simple, fair by arrival, suffers convoy effect</li>
+            <li><span style="color:var(--p2)">SJF / SRTF</span>: optimal wait time, but causes starvation</li>
+            <li><span style="color:var(--p3)">Priority</span>: critical tasks first, needs aging to prevent starvation
+            </li>
+            <li><span style="color:var(--p4)">Round Robin</span>: fairest, best for interactive, quantum-dependent</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">GO DEEPER</div>
+          <p class="text-sm text-gray-300 mb-3">Real OS schedulers (Linux CFS, Windows Priority Scheduler) combine these
+            ideas. Search:</p>
+          <p class="text-sm" style="color:var(--accent3);">→ <span class="mono" style="color:var(--accent4);">"Linux
+              Completely Fair Scheduler"</span></p>
+          <p class="text-sm mt-1" style="color:var(--accent3);">→ <span class="mono"
+              style="color:var(--accent4);">"Multilevel Feedback Queue"</span></p>
+          <p class="text-sm mt-1" style="color:var(--accent3);">→ Or run the same process set through all algorithms in
+            the simulator below.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+
+  <!-- Simulator CTA -->
+  <section id="simulator" class="section">
+    <div class="max-w-5xl mx-auto px-8">
+      <div class="stage-badge">
+        <span class="dot" style="background:var(--accent3);"></span>
+        Final Stage
+      </div>
+      <h2 class="text-4xl font-extrabold mb-4">You're ready for the Simulator.</h2>
+      <p class="text-gray-400 text-lg mb-10 max-w-xl" style="font-weight:400;">
+        You've built up from the CPU to context switches, states, metrics, and all four algorithms. Now put it all
+        together.
+      </p>
+
+      <div class="grid md:grid-cols-2 gap-6 mb-12">
+        <div class="theory-card accent-purple">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent);">WHAT TO EXPECT IN THE
+            SIMULATOR</div>
+          <ul class="text-sm text-gray-300 space-y-2">
+            <li>→ Enter any number of processes with AT and BT</li>
+            <li>→ Select the algorithm and variant</li>
+            <li>→ Get Gantt chart, per-process metrics, and averages</li>
+            <li>→ For RR: set your own time quantum</li>
+            <li>→ For Priority: assign priority values per process</li>
+          </ul>
+        </div>
+        <div class="theory-card accent-green">
+          <div class="text-xs font-bold tracking-widest mb-3" style="color:var(--accent3);">QUICK REFERENCE</div>
+          <ul class="text-sm text-gray-300 space-y-2 mono">
+            <li><span style="color:var(--accent3)">TAT</span> = CT − AT</li>
+            <li><span style="color:var(--accent)">WT</span> = TAT − BT</li>
+            <li><span style="color:var(--accent4)">RT</span> = First CPU start − AT</li>
+            <li><span style="color:var(--accent4)">Throughput</span> = Processes ÷ Total Time</li>
+            <li><span style="color:var(--p2)">SRTF</span>: preempt if new.BT &lt; curr.remaining</li>
+            <li><span style="color:var(--p4)">RR</span>: context switch every Q units</li>
+          </ul>
+        </div>
+      </div>
+
+      <a href="simulator/simulator.html" target="_blank"
+        class="inline-flex items-center gap-4 px-10 py-5 rounded-2xl font-extrabold text-xl transition-all duration-300 group"
+        style="background:linear-gradient(135deg,var(--accent),var(--accent2));color:white;box-shadow:0 0 40px rgba(124,106,255,0.3);"
+        onmouseover="this.style.transform='translateY(-3px)';this.style.boxShadow='0 0 60px rgba(124,106,255,0.5)'"
+        onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='0 0 40px rgba(124,106,255,0.3)'">
+        <span>Open the Simulator</span>
+        <span style="font-size:24px;transition:transform 0.3s;" class="group-hover:translate-x-2">→</span>
+      </a>
+
+    </div>
+  </section>
+
+
+  <footer class="border-t py-10 text-center" style="border-color:var(--border);">
+    <p class="mono text-xs" style="color:var(--muted);">CPU Scheduling · Interactive Learning Guide · OS Semester VIII
+    </p>
+  </footer>
+
+
+  <script src="main.js"></script>
 </body>
+
 </html>

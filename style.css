@@ -1,10 +1,9 @@
 /*
   CPU Scheduling — Interactive Learning Guide
   style.css
-
+  
   Fonts loaded via Google Fonts in index.html:
-    Platypi       — headings (h1, h2, h3)
-    DM Sans       — body text, UI labels, buttons
+    DM Sans       — headings, UI labels, buttons
     JetBrains Mono — code, data, formulas, Gantt labels
 */
 
@@ -14,17 +13,18 @@
    All colors live here. Change one, changes everywhere.
 ───────────────────────────────────────── */
 :root {
-  --bg:      #0a0a0f;
-  --surface: #111118;
-  --surface2:#18181f;
-  --border:  #2a2a38;
-  --accent:  #7c6aff;
-  --accent2: #ff6a6a;
-  --accent3: #6affb8;
-  --accent4: #ffb86a;
-  --text:    #e8e8f0;
-  --muted:   #7878a0;
+  --bg:      #0a0a0f;   /* page background */
+  --surface: #111118;   /* card background */
+  --surface2:#18181f;   /* slightly lighter surface (inputs, viz headers) */
+  --border:  #2a2a38;   /* all borders */
+  --accent:  #7c6aff;   /* purple — P1, foundations phase */
+  --accent2: #ff6a6a;   /* red — P2, warnings, danger */
+  --accent3: #6affb8;   /* green — P3, success, metrics */
+  --accent4: #ffb86a;   /* orange — P4, highlights */
+  --text:    #e8e8f0;   /* primary text */
+  --muted:   #7878a0;   /* secondary text, labels */
 
+  /* per-process colors used consistently throughout the page */
   --p1: #7c6aff;
   --p2: #ff6a6a;
   --p3: #6affb8;
@@ -44,6 +44,10 @@ body {
   color: var(--text);
   font-family: 'DM Sans', sans-serif;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+
 }
 
 h1, h2, h3 {
@@ -56,6 +60,7 @@ code, .mono {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* thin scrollbar, dark-themed */
 ::-webkit-scrollbar { width: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -63,6 +68,9 @@ code, .mono {
 
 /* ─────────────────────────────────────────
    NOISE TEXTURE OVERLAY
+   SVG fractal noise layered on the body
+   using a fixed pseudo-element.
+   Keeps things from looking too flat.
 ───────────────────────────────────────── */
 body::before {
   content: '';
@@ -81,7 +89,9 @@ body::before {
   position: relative;
   padding: 100px 0 80px;
   z-index: 1;
+  width: 100%;
 }
+/* divider between adjacent sections */
 .section + .section { border-top: 1px solid var(--border); }
 
 
@@ -97,6 +107,7 @@ body::before {
   opacity: 0.3;
 }
 
+/* blurred gradient orb, used for ambient glow in hero */
 .orb {
   position: absolute;
   border-radius: 50%;
@@ -107,13 +118,80 @@ body::before {
 
 
 /* ─────────────────────────────────────────
+   PHASE PROGRESS BAR  (fixed top strip)
+───────────────────────────────────────── */
+#phase-bar {
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 200;
+  background: rgba(10,10,15,0.92);
+  border-bottom: 1px solid var(--border);
+  backdrop-filter: blur(12px);
+  padding: 0 24px;
+  height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 0;
+}
+
+.phase-step {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 16px;
+  font-size: 10px; font-weight: 700; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted);
+  transition: color 0.3s;
+  cursor: pointer;
+}
+
+.phase-step .phase-icon {
+  width: 18px; height: 18px; border-radius: 50%;
+  border: 1.5px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; transition: all 0.3s;
+  background: var(--bg);
+}
+
+/* state variations */
+.phase-step.done              { color: var(--accent3); }
+.phase-step.done .phase-icon  { background: var(--accent3); border-color: var(--accent3); color: #000; }
+.phase-step.active            { color: var(--text); }
+.phase-step.active .phase-icon{ border-color: var(--accent); background: #1e1a3a; color: var(--accent); }
+
+.phase-sep {
+  color: #2a2a38;
+  font-size: 12px; font-weight: 300;
+  padding: 0 4px;
+}
+
+@media (max-width: 640px) {
+  .phase-step .phase-label { display: none; }
+  .phase-step { padding: 0 8px; }
+}
+
+
+/* ─────────────────────────────────────────
    SIDE NAV  (fixed left dot navigation)
 ───────────────────────────────────────── */
 #progress-nav {
   position: fixed; left: 24px; top: 50%;
   transform: translateY(-50%);
   z-index: 100;
-  display: flex; flex-direction: column; gap: 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.nav-group {
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+.nav-group + .nav-group {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.nav-group-label {
+  font-size: 7px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: #333;
+  padding-left: 2px;
+  font-family: 'JetBrains Mono', monospace;
 }
 
 .nav-dot {
@@ -122,9 +200,16 @@ body::before {
   transition: all 0.3s; position: relative;
 }
 
+/* elongates on active */
 .nav-dot.active { background: var(--accent); width: 8px; height: 24px; border-radius: 4px; }
 .nav-dot:hover  { background: var(--muted); }
 
+/* dot color shifts by phase when active */
+.nav-dot.phase-foundations.active { background: var(--accent); }
+.nav-dot.phase-scheduling.active  { background: var(--accent4); }
+.nav-dot.phase-algorithms.active  { background: var(--accent2); }
+
+/* hover tooltip */
 .nav-dot .tooltip {
   position: absolute; left: 18px; top: 50%;
   transform: translateY(-50%);
@@ -137,10 +222,11 @@ body::before {
 .nav-dot:hover .tooltip { opacity: 1; }
 
 @media (max-width: 768px) { #progress-nav { display: none; } }
+@media (max-width: 480px) { #phase-bar    { display: none; } }
 
 
 /* ─────────────────────────────────────────
-   STAGE BADGE
+   STAGE BADGE  (small pill above section headings)
 ───────────────────────────────────────── */
 .stage-badge {
   display: inline-flex; align-items: center; gap: 8px;
@@ -154,17 +240,18 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   THEORY CARD
+   THEORY CARD  (content cards with colored top stripe)
 ───────────────────────────────────────── */
 .theory-card {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 16px;
-  padding: 24px 28px;
+  padding: 28px 32px;
   position: relative;
   overflow: hidden;
 }
 
+/* the 2px gradient stripe at the top */
 .theory-card::before {
   content: '';
   position: absolute; top: 0; left: 0; right: 0; height: 2px;
@@ -176,7 +263,42 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   VIZ BOX
+   PHASE TRANSITION CARDS  (between phases)
+───────────────────────────────────────── */
+.phase-transition {
+  padding: 80px 0;
+  border-top: 1px solid var(--border);
+  position: relative; z-index: 1;
+}
+.phase-transition-inner {
+  max-width: 640px; margin: 0 auto;
+  padding: 0 32px; text-align: center;
+}
+.phase-transition-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-bottom: 24px;
+  font-size: 10px; font-weight: 800; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--muted);
+}
+.phase-transition-badge .line { height: 1px; width: 32px; background: var(--border); }
+.phase-transition p            { font-size: 18px; line-height: 1.7; color: var(--muted); font-weight: 400; }
+.phase-transition strong       { color: var(--text); font-weight: 700; }
+.phase-transition .next-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  margin-top: 28px; padding: 12px 28px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--surface);
+  color: var(--text); font-size: 13px; font-weight: 700;
+  cursor: pointer; transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif; text-decoration: none;
+}
+.phase-transition .next-btn:hover {
+  border-color: var(--accent); background: #1a1a2a;
+  transform: translateY(-1px);
+}
+
+
+/* ─────────────────────────────────────────
+   VIZ BOX  (container for interactive visualizations)
 ───────────────────────────────────────── */
 .viz-box {
   background: var(--surface);
@@ -201,6 +323,8 @@ body::before {
 /* ─────────────────────────────────────────
    GANTT CHART BLOCKS
 ───────────────────────────────────────── */
+.gantt-row { display: flex; align-items: center; gap: 0; }
+
 .gantt-block {
   height: 48px;
   display: flex; align-items: center; justify-content: center;
@@ -211,6 +335,7 @@ body::before {
   margin: 1px;
 }
 
+/* time tick labels underneath blocks */
 .gantt-block .tick {
   position: absolute; bottom: -20px; left: 0;
   font-size: 10px; color: var(--muted);
@@ -224,7 +349,7 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   PROCESS PILL
+   PROCESS PILL  (colored label tag, e.g. "P1")
 ───────────────────────────────────────── */
 .proc-pill {
   display: inline-flex; align-items: center; gap: 6px;
@@ -235,7 +360,7 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   METRIC PILL
+   METRIC PILL  (avg wait time, avg TAT badges)
 ───────────────────────────────────────── */
 .metric-pill {
   display: flex; flex-direction: column; align-items: center;
@@ -254,8 +379,8 @@ body::before {
 ───────────────────────────────────────── */
 .btn {
   display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 18px; border-radius: 10px;
-  font-size: 12px; font-weight: 700;
+  padding: 10px 22px; border-radius: 10px;
+  font-size: 13px; font-weight: 700;
   cursor: pointer; border: none; transition: all 0.2s;
   font-family: 'DM Sans', sans-serif;
 }
@@ -268,7 +393,7 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   DATA TABLE
+   DATA TABLE  (results tables in simulators)
 ───────────────────────────────────────── */
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th {
@@ -285,7 +410,7 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   HIGHLIGHT BOX
+   HIGHLIGHT BOX  (left-bordered callout)
 ───────────────────────────────────────── */
 .highlight-box {
   background: #13131f;
@@ -300,28 +425,100 @@ body::before {
 
 
 /* ─────────────────────────────────────────
-   FORMULA
+   FORMULA  (monospace display for math)
 ───────────────────────────────────────── */
 .formula {
   background: #0f0f18; border: 1px solid var(--border);
-  border-radius: 10px; padding: 8px 16px;
+  border-radius: 10px; padding: 12px 20px;
   font-family: 'JetBrains Mono', monospace;
-  font-size: 12px; color: var(--accent3);
+  font-size: 13px; color: var(--accent3);
   display: inline-block;
 }
 
 
 /* ─────────────────────────────────────────
-   READY QUEUE ITEM
+   ALGORITHM QUESTION CARD  (before algos section)
+───────────────────────────────────────── */
+.question-card {
+  background: #0d0d18; border: 1px solid #2a2a48;
+  border-radius: 20px; padding: 40px;
+  position: relative; overflow: hidden;
+}
+/* the large decorative "?" in the background */
+.question-card::before {
+  content: '?';
+  position: absolute; right: 32px; top: 16px;
+  font-size: 120px; font-weight: 900;
+  color: #ffffff06;
+  font-family: 'DM Sans', sans-serif;
+  line-height: 1;
+}
+.question-card-processes {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 12px; margin: 24px 0;
+}
+@media (max-width: 640px) {
+  .question-card-processes { grid-template-columns: repeat(2, 1fr); }
+}
+.qcard-proc {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; padding: 16px; text-align: center;
+}
+
+
+/* ─────────────────────────────────────────
+   MISC UI COMPONENTS
+───────────────────────────────────────── */
+
+/* tab buttons in the comparison section */
+.algo-tab {
+  padding: 8px 18px; border-radius: 8px;
+  font-size: 12px; font-weight: 700;
+  cursor: pointer; border: 1px solid var(--border);
+  color: var(--muted); background: var(--surface2);
+  transition: all 0.2s; letter-spacing: 1px;
+}
+.algo-tab.active { color: #fff; border-color: var(--accent); background: #1e1a3a; }
+
+/* number input used in RR quantum */
+.styled-input {
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); padding: 8px 14px; border-radius: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  outline: none; width: 80px; text-align: center;
+  transition: border-color 0.2s;
+}
+.styled-input:focus { border-color: var(--accent); }
+
+
+/* ─────────────────────────────────────────
+   READY QUEUE ITEM  (v4 addition)
+   Used by renderRQ() in main.js
 ───────────────────────────────────────── */
 .rq-item {
-  padding: 8px 14px;
   border-radius: 8px;
   font-weight: 700;
-  font-size: 12px;
   font-family: 'JetBrains Mono', monospace;
-  border: 1px solid;
-  transition: all 0.3s;
+  font-size: 11px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+
+
+/* ─────────────────────────────────────────
+   ALGORITHM CHOOSER BUTTON  (v4 addition)
+   Used in comparison section
+───────────────────────────────────────── */
+.chooser-btn {
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'DM Sans', sans-serif;
+}
+
+.chooser-btn:hover {
+  background: var(--surface) !important;
+  transform: translateX(4px);
 }
 
 
@@ -340,100 +537,5 @@ body::before {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.4; }
 }
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 8px rgba(124,106,255,0.4); }
-  50%       { box-shadow: 0 0 24px rgba(124,106,255,0.8); }
-}
-@keyframes ctx-flash {
-  0%   { background: #ff6a6a33; }
-  100% { background: transparent; }
-}
 
-.ctx-switch-flash { animation: ctx-flash 0.5s ease; }
 .fade-up { animation: fadeUp 0.6s ease forwards; }
-
-
-/* ─────────────────────────────────────────
-   PHASE BAR  (fixed top strip)
-───────────────────────────────────────── */
-#phase-bar {
-  position: fixed; top: 0; left: 0; right: 0;
-  height: 48px; z-index: 200;
-  background: rgba(10,10,15,0.92);
-  backdrop-filter: blur(14px);
-  border-bottom: 1px solid var(--border);
-  display: flex; align-items: center; justify-content: center;
-  gap: 6px;
-}
-
-.phase-step {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 14px; border-radius: 100px;
-  font-size: 11px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; cursor: pointer;
-  color: var(--muted); transition: all 0.3s;
-  border: 1px solid transparent;
-}
-.phase-step.active {
-  color: var(--text); border-color: var(--border);
-  background: var(--surface2);
-}
-.phase-step.done { color: var(--accent3); }
-
-.phase-icon {
-  width: 22px; height: 22px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 800;
-  background: var(--border); color: var(--muted);
-  transition: all 0.3s; flex-shrink: 0;
-}
-.phase-step.active .phase-icon {
-  background: var(--accent); color: #fff;
-}
-.phase-step.done .phase-icon {
-  background: var(--accent3); color: #000;
-  font-size: 12px;
-}
-
-.phase-sep {
-  color: var(--border); font-size: 14px; user-select: none;
-  margin: 0 2px;
-}
-
-.phase-label { white-space: nowrap; }
-@media (max-width: 600px) { .phase-label { display: none; } }
-
-/* push body content below phase bar */
-body { padding-top: 48px; }
-
-
-/* ─────────────────────────────────────────
-   GROUPED SIDE NAV
-───────────────────────────────────────── */
-.nav-group {
-  display: flex; flex-direction: column; align-items: center; gap: 5px;
-  position: relative;
-}
-.nav-group + .nav-group { margin-top: 6px; padding-top: 6px; }
-.nav-group + .nav-group::before {
-  content: ''; position: absolute; top: 0;
-  width: 1px; height: 1px; /* visual separator handled by margin */
-}
-
-.nav-group-label {
-  font-size: 8px; font-weight: 800; letter-spacing: 1.5px;
-  color: var(--border); font-family: 'JetBrains Mono', monospace;
-  text-transform: uppercase; line-height: 1;
-  margin-bottom: 2px;
-}
-
-/* Phase-colored dots */
-.nav-dot.phase-foundations.active { background: var(--accent); }
-.nav-dot.phase-scheduling.active  { background: var(--accent4); }
-.nav-dot.phase-algorithms.active  { background: var(--accent2); }
-.nav-dot.phase-simulator.active   { background: var(--accent3); }
-
-.nav-dot.phase-foundations:hover { background: var(--accent); opacity: 0.6; }
-.nav-dot.phase-scheduling:hover  { background: var(--accent4); opacity: 0.6; }
-.nav-dot.phase-algorithms:hover  { background: var(--accent2); opacity: 0.6; }
-.nav-dot.phase-simulator:hover   { background: var(--accent3); opacity: 0.6; }
